@@ -47,6 +47,11 @@ export interface Merchant {
   legalName?: string;
   email?: string;
   phone?: string;
+  primaryContact?: string;
+  merchantType?: string; // POS Portal "type" (e.g. CLIENT)
+  taxExempt?: boolean;
+  supplyClub?: boolean;
+  lastUpdatedAt?: string; // POS Portal lastUpdatedDate
   shippingAddress?: Address;
   createdAt?: string;
 }
@@ -118,6 +123,9 @@ export interface Order {
   merchant: Pick<Merchant, 'id' | 'mid' | 'dbaName'> & { shippingAddress?: Address };
   lines: OrderLine[];
   shippingMethodLabel?: string;
+  shippingCarrier?: string;
+  total?: number; // POS Portal totals.grandTotal
+  shipDate?: string;
   packages: Package[];
   serialNumbers: string[];
   originalOrderId?: number; // links swaps/reships
@@ -162,11 +170,13 @@ export interface ReturnCase {
   id: number;
   pospReturnId?: number; // POS Portal RMA id (imported returns)
   origin?: 'engine' | 'posportal';
+  pospStatus?: string; // raw POS Portal RMA status (imported returns)
   callTagId?: number;
   entityType: 'order' | 'merchant';
   entityId: number;
   merchantId: number;
   mid?: string;
+  merchantDba?: string;
   lifecycle: ReturnLifecycle;
   callTagStatus?: CallTagStatus;
   items: ReturnItem[];

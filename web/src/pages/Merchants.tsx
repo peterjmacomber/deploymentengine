@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Permission } from '@de/shared';
+import { type Merchant, Permission } from '@de/shared';
 import { AppShell } from '../components/AppShell';
-import { DataTable } from '../components/DataTable';
+import { Badge } from '../components/ui';
+import { type Column, DataTable } from '../components/DataTable';
+import { useVisibleColumns } from '../components/ColumnPicker';
 import { Modal } from '../components/Modal';
 import { api, ApiError } from '../api/client';
 import { useToast } from '../components/Toast';
@@ -22,6 +24,24 @@ export function Merchants() {
   const [form, setForm] = useState({ ...EMPTY_FORM });
 
   const { data, isLoading } = useQuery({ queryKey: ['merchants', search], queryFn: () => api.merchants.list(search || undefined) });
+
+  const yesNo = (v?: boolean) => (v == null ? '—' : v ? 'Yes' : 'No');
+  const allColumns: Column<Merchant>[] = [
+    { key: 'dba', label: 'DBA', header: 'DBA', sort: (m) => (m.dbaName ?? '').toLowerCase(), cell: (m) => <span className="rowlink">{m.dbaName ?? '—'}</span> },
+    { key: 'mid', label: 'MID', header: 'MID', sort: (m) => m.mid ?? '', cell: (m) => <span className="mono small">{m.mid ?? '—'}</span> },
+    { key: 'contact', label: 'Primary contact', header: 'Contact', sort: (m) => (m.primaryContact ?? '').toLowerCase(), cell: (m) => m.primaryContact ?? '—' },
+    { key: 'phone', label: 'Phone', header: 'Phone', sort: (m) => m.phone ?? '', cell: (m) => m.phone ?? '—' },
+    { key: 'email', label: 'Email', header: 'Email', sort: (m) => (m.email ?? '').toLowerCase(), cell: (m) => m.email ?? '—' },
+    { key: 'city', label: 'City', header: 'City', sort: (m) => (m.shippingAddress?.city ?? '').toLowerCase(), cell: (m) => m.shippingAddress?.city ?? '—' },
+    { key: 'state', label: 'State', header: 'State', sort: (m) => m.shippingAddress?.region ?? '', cell: (m) => m.shippingAddress?.region ?? '—' },
+    { key: 'type', label: 'Type', header: 'Type', sort: (m) => m.merchantType ?? '', cell: (m) => (m.merchantType ? <Badge tone="gray">{m.merchantType}</Badge> : '—') },
+    { key: 'taxExempt', label: 'Tax exempt', header: 'Tax exempt', sort: (m) => (m.taxExempt ? 0 : 1), cell: (m) => yesNo(m.taxExempt) },
+    { key: 'supplyClub', label: 'Supply club', header: 'Supply club', sort: (m) => (m.supplyClub ? 0 : 1), cell: (m) => yesNo(m.supplyClub) },
+    { key: 'legalName', label: 'Legal name', header: 'Legal name', sort: (m) => (m.legalName ?? '').toLowerCase(), cell: (m) => m.legalName ?? '—' },
+    { key: 'created', label: 'Created', header: 'Created', sort: (m) => m.createdAt ?? '', cell: (m) => <span className="small">{date(m.createdAt)}</span> },
+    { key: 'updated', label: 'Last updated (POS Portal)', header: 'Updated', sort: (m) => m.lastUpdatedAt ?? '', cell: (m) => <span className="small">{date(m.lastUpdatedAt)}</span> },
+  ];
+  const { columns, menu } = useVisibleColumns('merchants', allColumns, ['dba', 'mid', 'contact', 'phone', 'email', 'created']);
 
   const create = useMutation({
     mutationFn: () =>
@@ -43,6 +63,8 @@ export function Merchants() {
         <input placeholder="Search MID, phone, email, or DBA…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ padding: '8px 11px', borderRadius: 8, border: '1px solid var(--border)', minWidth: 320 }} />
         {search && <button className="btn sm" onClick={() => setSearch('')}>Clear</button>}
         {data?.merchants && <span className="muted small" style={{ alignSelf: 'center' }}>{data.merchants.length} result(s)</span>}
+        <div style={{ flex: 1 }} />
+        {menu}
       </div>
 
       <DataTable
@@ -51,14 +73,7 @@ export function Merchants() {
         loading={isLoading}
         empty="No merchants match."
         onRowClick={(m) => navigate(`/merchants/${m.id}`)}
-        columns={[
-          { header: 'DBA', sort: (m) => (m.dbaName ?? '').toLowerCase(), cell: (m) => <span className="rowlink">{m.dbaName ?? '—'}</span> },
-          { header: 'MID', sort: (m) => m.mid ?? '', cell: (m) => <span className="mono small">{m.mid ?? '—'}</span> },
-          { header: 'Legal name', sort: (m) => (m.legalName ?? '').toLowerCase(), cell: (m) => m.legalName ?? '—' },
-          { header: 'Email', sort: (m) => (m.email ?? '').toLowerCase(), cell: (m) => m.email ?? '—' },
-          { header: 'Phone', sort: (m) => m.phone ?? '', cell: (m) => m.phone ?? '—' },
-          { header: 'Created', sort: (m) => m.createdAt ?? '', cell: (m) => <span className="small">{date(m.createdAt)}</span> },
-        ]}
+        columns={columns}
       />
 
       {open && (

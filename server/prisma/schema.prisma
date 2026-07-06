@@ -33,6 +33,11 @@ model Merchant {
   legalName           String?
   email               String?
   phone               String?
+  primaryContact      String?
+  merchantType        String? // POS Portal "type" (e.g. CLIENT)
+  taxExempt           Boolean?
+  supplyClub          Boolean?
+  lastUpdatedAt       DateTime? // POS Portal lastUpdatedDate
   shippingAddressJson String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -114,6 +119,9 @@ model Order {
   shippingAddressJson String?
   linesJson           String   @default("[]")
   shippingMethodLabel String?
+  shippingCarrier     String?
+  total               Float? // POS Portal totals.grandTotal
+  shipDate            DateTime?
   packagesJson        String   @default("[]")
   serialNumbersJson   String   @default("[]")
   originalOrderId     Int?
@@ -166,11 +174,13 @@ model ReturnCase {
   id                 Int      @id @default(autoincrement())
   pospReturnId       Int?     @unique // POS Portal RMA id (for imported returns)
   origin             String?  @default("engine") // engine | posportal
+  pospStatus         String? // raw POS Portal RMA status (imported returns), e.g. CLOSED_BY_RETURN
   callTagId          Int?
   entityType         String // order|merchant
   entityId           Int
   merchantId         Int
   mid                String?
+  merchantDba        String?
   lifecycle          String // ReturnLifecycle
   callTagStatus      String?
   itemsJson          String   @default("[]")

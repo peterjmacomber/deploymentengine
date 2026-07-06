@@ -78,6 +78,11 @@ async function ensureMerchant(pospId: number, mid?: string, dbaFallback?: string
       legalName: null,
       email: m?.email || null,
       phone: m?.phone || null,
+      primaryContact: m?.primaryContact || null,
+      merchantType: m?.type || null,
+      taxExempt: typeof m?.taxExempt === 'boolean' ? m.taxExempt : null,
+      supplyClub: typeof m?.supplyClub === 'boolean' ? m.supplyClub : null,
+      lastUpdatedAt: m?.lastUpdatedDate ? new Date(m.lastUpdatedDate) : null,
       shippingAddressJson: addr
         ? toJson({ line1: addr.line1, line2: addr.line2, city: addr.city, region: addr.region, postalCode: addr.postalCode, country: addr.country || 'US', merchantName: m?.dbaName })
         : null,
@@ -180,6 +185,9 @@ async function importOrders(limit: number): Promise<{ orders: number; deployed: 
       shippingAddressJson: toJson(mapAddress(o.shipping?.address)),
       linesJson: toJson(lines),
       shippingMethodLabel: o.shipping?.serviceLevelDescription ?? o.shipping?.serviceLevel ?? null,
+      shippingCarrier: o.shipping?.carrier ?? null,
+      total: o.totals?.grandTotal != null ? Number(o.totals.grandTotal) : null,
+      shipDate: o.shipDate ? new Date(o.shipDate) : null,
       packagesJson: toJson(packages),
       serialNumbersJson: toJson(allSerials.map((s) => s.serial)),
       originalOrderId: o.relatedOrders?.originalOrderId ?? null,
@@ -215,16 +223,17 @@ async function importOrders(limit: number): Promise<{ orders: number; deployed: 
   return { orders: orderCount, deployed: deployedCount, merchants: merchantCache.size };
 }
 
-/** Map a POS Portal return status to our lifecycle. */
+/** Map a POS Portal return status (OPEN, CLOSED_BY_RETURN, CLOSED_BY_BILLING,
+ *  CLOSED_BY_RETURN_AFTER_BILLING, CANCELLED, …) to our lifecycle. The raw status is also stored
+ *  verbatim (pospStatus) and is what the UI displays for imported returns. */
 function mapReturnLifecycle(status: string): string {
-  switch ((status || '').toUpperCase()) {
-    case 'CANCELLED': return ReturnLifecycle.CANCELLED;
-    case 'CLOSED': return ReturnLifecycle.CLOSED;
-    case 'RECEIVED':
-    case 'ITEMS_RECEIVED': return ReturnLifecycle.ITEMS_RECEIVED;
-    case 'SHIPPED': return ReturnLifecycle.REPLACEMENT_SHIPPED;
-    default: return ReturnLifecycle.CALLTAG_ISSUED;
-  }
+  const s = (status || '').toUpperCase();
+  if (s === 'CANCELLED') return ReturnLifecycle.CANCELLED;
+  if (s.startsWith('CLOSED')) return ReturnLifecycle.CLOSED;
+  if (s.includes('RECEIV')) return ReturnLifecycle.ITEMS_RECEIVED;
+  if (s.includes('SHIP')) return ReturnLifecycle.REPLACEMENT_SHIPPED;
+  if (s === 'OPEN') return ReturnLifecycle.CALLTAG_ISSUED;
+  return ReturnLifecycle.INITIATED;
 }
 function mapReturnType(type: string): string {
   const t = (type || '').toUpperCase();
@@ -249,6 +258,7 @@ async function importReturns(limit: number): Promise<number> {
   let n = 0;
   for (const r of returns) {
     const localMerchantId = await ensureMerchant(r.merchantId, r.mid, r.address?.merchantName);
+    const mrow = await prisma.merchant.findUnique({ where: { id: localMerchantId }, select: { dbaName: true } });
     const items = (r.items ?? []).map((it: any) => ({
       deployedEquipmentId: it.deployedEquipmentId ?? undefined,
       returnType: mapReturnType(it.type),
@@ -265,10 +275,12 @@ async function importReturns(limit: number): Promise<number> {
     const data = {
       pospReturnId: r.id,
       origin: 'posportal',
+      pospStatus: r.status ?? null,
       entityType: 'order',
       entityId: r.orderId ?? r.items?.[0]?.expectedOrderId ?? 0,
       merchantId: localMerchantId,
       mid: r.mid ?? null,
+      merchantDba: mrow?.dbaName ?? null,
       lifecycle,
       itemsJson: toJson(items),
       expectedItemCount: items.length,

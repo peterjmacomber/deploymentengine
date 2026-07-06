@@ -1,17 +1,18 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { type Order, OrderClassification, OrderStatus, Permission } from '@de/shared';
 import { AppShell } from '../components/AppShell';
 import { SectionNav } from '../components/SectionNav';
 import { StatusBadge } from '../components/ui';
-import { DataTable } from '../components/DataTable';
+import { type Column, DataTable } from '../components/DataTable';
 import { useTableControls } from '../components/TableControls';
+import { useVisibleColumns } from '../components/ColumnPicker';
+import { SerialLink } from '../components/SerialLink';
 import { ReturnSwapModal } from '../components/ReturnSwapModal';
 import { api } from '../api/client';
 import { useAuth } from '../stores/authStore';
-import { date, titleCase } from '../lib/format';
-import { bundleBrandMap, orderBrands } from '../lib/brand';
+import { date, money, titleCase } from '../lib/format';
 
 const PHASES: { key: string; label: string; match: (o: Order) => boolean }[] = [
   { key: 'all', label: 'All', match: () => true },
@@ -22,6 +23,8 @@ const PHASES: { key: string; label: string; match: (o: Order) => boolean }[] = [
   { key: 'returned', label: 'Returned', match: (o) => ([OrderStatus.RETURNED, OrderStatus.RETURNED_HOLDING] as OrderStatus[]).includes(o.status) },
   { key: 'cancelled', label: 'Cancelled', match: (o) => o.status === OrderStatus.CANCELLED },
 ];
+
+const units = (o: Order) => o.lines.reduce((s, l) => s + l.quantity, 0);
 
 export function Orders() {
   const navigate = useNavigate();
@@ -35,8 +38,6 @@ export function Orders() {
     queryFn: () => api.orders.list({}),
     refetchInterval: 30_000,
   });
-  const bq = useQuery({ queryKey: ['bundles'], queryFn: api.bundles.list });
-  const brandMap = useMemo(() => bundleBrandMap(bq.data?.bundles), [bq.data]);
 
   const orders = data?.orders ?? [];
   const ctl = useTableControls(orders, {
@@ -45,9 +46,9 @@ export function Orders() {
     dateField: (o) => o.createdAt,
     dateLabel: 'Placed',
     facets: [
-      { key: 'brand', label: 'Brand', value: (o) => orderBrands(o, brandMap) },
       { key: 'origin', label: 'Origin', value: (o) => (o.originLinkName ? 'Deployment link' : titleCase(o.method)) },
       { key: 'type', label: 'Type', value: (o) => titleCase(o.classification) },
+      { key: 'carrier', label: 'Carrier', value: (o) => o.shippingCarrier ?? '—' },
     ],
   });
   const [sp, setSp] = useSearchParams();
@@ -55,6 +56,43 @@ export function Orders() {
   const active = PHASES.find((p) => p.key === phase) ?? PHASES[0];
   const rows = ctl.rows.filter(active.match).filter((o) => !statusParam || o.status === statusParam);
   const countOf = (p: (typeof PHASES)[number]) => ctl.rows.filter(p.match).length;
+
+  const allColumns: Column<Order>[] = [
+    { key: 'reference', label: 'Reference', header: 'Reference', sort: (o) => o.reference ?? '', cell: (o) => <span className="mono">{o.reference}</span> },
+    {
+      key: 'merchant', label: 'Merchant', header: 'Merchant',
+      sort: (o) => (o.merchant.dbaName ?? o.merchant.mid ?? '').toLowerCase(),
+      cell: (o) => (
+        <div>
+          <Link className="rowlink" to={`/merchants/${o.merchant.id}`} onClick={(e) => e.stopPropagation()}>{o.merchant.dbaName ?? '—'}</Link>
+          <div className="small muted mono">{o.merchant.mid}</div>
+        </div>
+      ),
+    },
+    { key: 'type', label: 'Type', header: 'Type', sort: (o) => o.classification, cell: (o) => <span className="small">{titleCase(o.classification)}</span> },
+    { key: 'items', label: 'Items', header: 'Items', sort: (o) => units(o), cell: (o) => units(o) },
+    {
+      key: 'serials', label: 'Serials', header: 'Serials',
+      sort: (o) => o.serialNumbers.length,
+      cell: (o) => (o.serialNumbers.length
+        ? <div className="row" style={{ gap: 4, flexWrap: 'wrap' }}>
+            {o.serialNumbers.slice(0, 6).map((s) => <SerialLink key={s} serial={s} />)}
+            {o.serialNumbers.length > 6 && <span className="small muted">+{o.serialNumbers.length - 6}</span>}
+          </div>
+        : <span className="muted">—</span>),
+    },
+    { key: 'origin', label: 'Origin', header: 'Origin', sort: (o) => (o.originLinkName ? `link ${o.originLinkName}` : titleCase(o.method)), cell: (o) => (o.originLinkName ? <span className="small"><span className="badge teal">link</span> {o.originLinkName}</span> : <span className="small muted">{titleCase(o.method)}</span>) },
+    { key: 'shipping', label: 'Shipping method', header: 'Shipping', sort: (o) => o.shippingMethodLabel ?? '', cell: (o) => <span className="small">{o.shippingMethodLabel ?? '—'}</span> },
+    { key: 'carrier', label: 'Carrier', header: 'Carrier', sort: (o) => o.shippingCarrier ?? '', cell: (o) => <span className="small">{o.shippingCarrier ?? '—'}</span> },
+    { key: 'total', label: 'Order total', header: 'Total', sort: (o) => o.total ?? -1, cell: (o) => (o.total != null ? money(o.total) : '—') },
+    { key: 'status', label: 'Status', header: 'Status', sort: (o) => o.status, cell: (o) => <StatusBadge status={o.status} /> },
+    { key: 'placed', label: 'Placed', header: 'Placed', sort: (o) => o.createdAt, cell: (o) => <span className="small">{date(o.createdAt)}</span> },
+    { key: 'shipDate', label: 'Ship date', header: 'Shipped', sort: (o) => o.shipDate ?? '', cell: (o) => <span className="small">{date(o.shipDate)}</span> },
+    ...(can(Permission.RETURN_WRITE)
+      ? [{ header: '', cell: (o: Order) => <button className="btn sm" onClick={(e) => { e.stopPropagation(); setSwapOrder(o); }}>Return/Swap</button> }]
+      : []),
+  ];
+  const { columns, menu } = useVisibleColumns('orders', allColumns, ['reference', 'merchant', 'items', 'serials', 'origin', 'status', 'placed']);
 
   return (
     <AppShell
@@ -70,7 +108,10 @@ export function Orders() {
         ))}
       </div>
 
-      {ctl.toolbar}
+      <div className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
+        <div style={{ flex: 1 }}>{ctl.toolbar}</div>
+        {menu}
+      </div>
       {statusParam && (
         <div className="row" style={{ marginBottom: 12 }}>
           <span className="badge teal">Status: {titleCase(statusParam)}
@@ -85,28 +126,7 @@ export function Orders() {
         loading={isLoading}
         onRowClick={(o) => navigate(`/orders/${o.id}`)}
         empty="No orders match."
-        columns={[
-          { header: 'Reference', sort: (o) => o.reference ?? '', cell: (o) => <span className="mono">{o.reference}</span> },
-          {
-            header: 'Merchant',
-            sort: (o) => (o.merchant.dbaName ?? o.merchant.mid ?? '').toLowerCase(),
-            cell: (o) => (
-              <div>
-                <Link className="rowlink" to={`/merchants/${o.merchant.id}`} onClick={(e) => e.stopPropagation()}>{o.merchant.dbaName ?? '—'}</Link>
-                <div className="small muted mono">{o.merchant.mid}</div>
-              </div>
-            ),
-          },
-          { header: 'Brand', sort: (o) => orderBrands(o, brandMap).join(','), cell: (o) => <span className="small">{orderBrands(o, brandMap).join(', ') || '—'}</span> },
-          { header: 'Items', sort: (o) => o.lines.reduce((s, l) => s + l.quantity, 0), cell: (o) => o.lines.reduce((s, l) => s + l.quantity, 0) },
-          { header: 'Serials', sort: (o) => o.serialNumbers.length, cell: (o) => (o.serialNumbers.length ? o.serialNumbers.length : '—') },
-          { header: 'Origin', sort: (o) => (o.originLinkName ? `link ${o.originLinkName}` : titleCase(o.method)), cell: (o) => (o.originLinkName ? <span className="small"><span className="badge teal">link</span> {o.originLinkName}</span> : <span className="small muted">{titleCase(o.method)}</span>) },
-          { header: 'Status', sort: (o) => o.status, cell: (o) => <StatusBadge status={o.status} /> },
-          { header: 'Placed', sort: (o) => o.createdAt, cell: (o) => <span className="small">{date(o.createdAt)}</span> },
-          ...(can(Permission.RETURN_WRITE)
-            ? [{ header: '', cell: (o: Order) => <button className="btn sm" onClick={(e) => { e.stopPropagation(); setSwapOrder(o); }}>Return/Swap</button> }]
-            : []),
-        ]}
+        columns={columns}
       />
       {swapOrder && <ReturnSwapModal order={swapOrder} onClose={() => setSwapOrder(null)} />}
     </AppShell>

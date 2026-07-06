@@ -7,6 +7,11 @@ export interface Column<T> {
   width?: string;
   /** Provide a comparable value to make this column sortable (click the header). */
   sort?: (row: T) => string | number;
+  /** Stable id — makes the column toggleable in the column picker. Columns without a key
+   *  (checkboxes, action buttons) are always shown. */
+  key?: string;
+  /** Plain-text label shown in the column picker (defaults to `key`). */
+  label?: string;
 }
 
 export function DataTable<T>({
