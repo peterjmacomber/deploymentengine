@@ -1,0 +1,289 @@
+// Deployment Engine data model.
+// Dev: SQLite (zero-infra). Prod: change provider to "postgresql" and point DATABASE_URL
+// at Postgres — the schema is written to port cleanly (no SQLite-only features).
+// SQLite has no native JSON/enum types, so complex values are stored as JSON strings
+// (columns suffixed *Json) and enums as validated String columns.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  name         String
+  role         String // Role enum (admin|manager|agent|readonly)
+  passwordHash String
+  active       Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Merchant {
+  id                  Int      @id @default(autoincrement())
+  pospMerchantId      Int?
+  mid                 String?
+  dbaName             String
+  legalName           String?
+  email               String?
+  phone               String?
+  shippingAddressJson String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  orders   Order[]
+  deployed DeployedEquipment[]
+
+  @@index([mid])
+}
+
+model Bundle {
+  id                    Int      @id @default(autoincrement())
+  pospBundleId          Int      @unique
+  displayName           String
+  description           String?
+  active                Boolean  @default(false)
+  itemsJson             String   @default("[]")
+  application           String?
+  encryption            String?
+  processorPlatform     String?
+  // Real config pulled from POS Portal bundle items (source of truth, matches their site).
+  pospApplication       String?
+  pospEncryption        String?
+  pospOsBuild           String?
+  distributor           String   @default("POS Portal")
+  accountingDeviceModel String?
+  accountingUnitPrice   Float?
+  brand                 String?
+  pospSnapshotJson      String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([active])
+}
+
+model DevicePrice {
+  id        Int      @id @default(autoincrement())
+  keyword   String   @unique // lowercased match token against a bundle/device name
+  model     String // display name, e.g. "Ingenico Link 2500"
+  price     Float
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+}
+
+model ForecastEstimate {
+  id         Int      @id @default(autoincrement())
+  newPartId  String
+  month      String // YYYY-MM (the forward month being estimated)
+  qty        Int      @default(0)
+  updatedBy  String?
+  updatedAt  DateTime @updatedAt
+
+  @@unique([newPartId, month])
+  @@index([newPartId])
+}
+
+model ApiKey {
+  id         Int       @id @default(autoincrement())
+  name       String
+  prefix     String // first chars of the raw key, for identification
+  keyHash    String    @unique // sha256 of the full raw key
+  active     Boolean   @default(true)
+  createdBy  String?
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+}
+
+model Order {
+  id                  Int      @id @default(autoincrement())
+  pospOrderId         Int?
+  reference           String?
+  status              String // OrderStatus enum
+  method              String // OrderMethod enum
+  classification      String // OrderClassification enum
+  cancellable         Boolean  @default(true)
+  merchantId          Int
+  merchantMid         String?
+  merchantDba         String?
+  shippingAddressJson String?
+  linesJson           String   @default("[]")
+  shippingMethodLabel String?
+  packagesJson        String   @default("[]")
+  serialNumbersJson   String   @default("[]")
+  originalOrderId     Int?
+  createdBy           String?
+  originLinkToken     String? // deployment link this order came from
+  originLinkName      String?
+  syncStatus          String? // synced | local | pending  (sandbox submission state)
+  syncError           String?
+  shareToken          String?  @unique // public sanitized-tracking link token
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  merchant  Merchant             @relation(fields: [merchantId], references: [id])
+  deployed  DeployedEquipment[]
+  terminals FortisTerminalSync[]
+
+  @@index([status])
+  @@index([merchantId])
+  @@index([createdAt])
+}
+
+model DeployedEquipment {
+  id               Int       @id @default(autoincrement())
+  pospId           Int?
+  serialNumber     String
+  productName      String?
+  model            String?
+  merchantId       Int
+  mid              String?
+  orderId          Int?
+  status           String    @default("ACTIVE") // DeployedStatus
+  deployedAt       DateTime?
+  fortisTerminalId String?
+  fortisAccountId  String?
+  fortisActivated  Boolean   @default(false)
+  application      String?
+  encryption       String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  merchant Merchant @relation(fields: [merchantId], references: [id])
+  order    Order?   @relation(fields: [orderId], references: [id])
+
+  @@index([merchantId])
+  @@index([serialNumber])
+  @@index([status])
+}
+
+model ReturnCase {
+  id                 Int      @id @default(autoincrement())
+  pospReturnId       Int?     @unique // POS Portal RMA id (for imported returns)
+  origin             String?  @default("engine") // engine | posportal
+  callTagId          Int?
+  entityType         String // order|merchant
+  entityId           Int
+  merchantId         Int
+  mid                String?
+  lifecycle          String // ReturnLifecycle
+  callTagStatus      String?
+  itemsJson          String   @default("[]")
+  expectedItemCount  Int      @default(0)
+  receivedItemCount  Int      @default(0)
+  delinquent         Boolean  @default(false)
+  replacementOrderId Int?
+  refundAmount       Float?
+  exceptionId        Int?
+  daysSinceDeployment Int?
+  notes              String?
+  createdBy          String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([merchantId])
+  @@index([lifecycle])
+}
+
+model ExceptionRequest {
+  id                  Int       @id @default(autoincrement())
+  type                String // ExceptionType
+  status              String    @default("PENDING") // ExceptionStatus
+  requestedBy         String
+  requestedAt         DateTime  @default(now())
+  reason              String
+  merchantId          Int?
+  orderId             Int?
+  returnCaseId        Int?
+  bundlePospId        Int?
+  originalPrice       Float?
+  requestedPrice      Float?
+  serialNumber        String?
+  daysSinceDeployment Int?
+  decidedBy           String?
+  decidedAt           DateTime?
+  decisionNote        String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([status])
+  @@index([type])
+}
+
+model FortisTerminalSync {
+  id           Int      @id @default(autoincrement())
+  orderId      Int
+  serialNumber String
+  linksValue   String
+  terminalId   String?
+  accountId    String?
+  activated    Boolean  @default(false)
+  status       String // created|failed|skipped
+  error        String?
+  createdAt    DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+}
+
+model DeploymentLink {
+  id                   Int       @id @default(autoincrement())
+  token                String    @unique
+  type                 String // order | application
+  name                 String
+  active               Boolean   @default(true)
+  merchantId           Int?
+  merchantMid          String?
+  merchantDba          String?
+  bundlePospIdsJson    String    @default("[]")
+  pricingOverridesJson String    @default("{}")
+  shippingMethodId     Int?
+  customFeeName        String?
+  customFeeAmount      Float?
+  passwordHash         String?
+  maxUses              Int?
+  usesCount            Int       @default(0)
+  expiresAt            DateTime?
+  // analytics
+  visits               Int       @default(0)
+  orders               Int       @default(0)
+  unitsVolume          Int       @default(0)
+  revenue              Float     @default(0)
+  lastUsedAt           DateTime?
+  createdBy            String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([token])
+  @@index([active])
+}
+
+model Setting {
+  key       String   @id
+  valueJson String
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id           Int      @id @default(autoincrement())
+  actor        String
+  actorRole    String
+  action       String
+  targetType   String?
+  targetId     String?
+  method       String
+  path         String
+  ip           String?
+  statusCode   Int?
+  metadataJson String?
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actor])
+}

@@ -1,0 +1,19 @@
+node_modules/
+dist/
+build/
+*.log
+.env
+.env.*
+!.env.example
+# SQLite dev db
+server/prisma/*.db
+server/prisma/*.db-journal
+server/prisma/dev.db*
+# Portable DB backups (keep the folder, not the data)
+data/*.db
+!data/.gitkeep
+# Prisma generated client
+server/node_modules/.prisma/
+.DS_Store
+coverage/
+*.tsbuildinfo

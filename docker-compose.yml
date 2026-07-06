@@ -1,0 +1,62 @@
+# Dockerized dev stack for the Deployment Engine.
+#   docker compose up            -> installs deps, sets up + seeds the DB, runs API + web
+#   docker compose run --rm tools npm run typecheck   -> one-off commands
+#
+# node_modules lives in a named volume (fast, and never synced to OneDrive). Source is
+# bind-mounted so edits hot-reload.
+name: deployment-engine
+
+x-node: &node
+  build:
+    context: .
+    dockerfile: Dockerfile.dev
+  working_dir: /app
+  volumes:
+    - ./:/app
+    - node_modules:/app/node_modules
+
+services:
+  # One-shot: install workspaces, generate Prisma client, AUTO-RESTORE the DB from a portable
+  # backup (data/backup.db) if present — else create + seed a fresh SQLite DB. This makes the
+  # project fully self-contained: copy the folder to a new machine, `docker compose up`, done.
+  install:
+    <<: *node
+    command: sh -lc "npm install --no-audit --no-fund && node scripts/db-restore-if-empty.mjs && npm run db:generate --workspace server && npm run db:push --workspace server && npm run seed --workspace server"
+
+  server:
+    <<: *node
+    restart: unless-stopped
+    depends_on:
+      install:
+        condition: service_completed_successfully
+    command: sh -lc "npm run dev:server"
+    ports:
+      - "8090:8090"
+
+  web:
+    <<: *node
+    restart: unless-stopped
+    depends_on:
+      install:
+        condition: service_completed_successfully
+    environment:
+      - VITE_PROXY_TARGET=http://server:8090
+    command: sh -lc "npm run dev:web"
+    ports:
+      - "5175:5175"
+
+  # Ad-hoc command runner: `docker compose run --rm tools npm run typecheck`
+  tools:
+    <<: *node
+    profiles: ["tools"]
+    command: sh -lc "node -v"
+
+  # Portable DB backup: `docker compose run --rm backup` → writes data/backup.db (a complete,
+  # restorable SQLite snapshot). Restore with `docker compose run --rm tools node scripts/db-import.mjs`.
+  backup:
+    <<: *node
+    profiles: ["tools"]
+    command: sh -lc "node scripts/db-export.mjs"
+
+volumes:
+  node_modules:

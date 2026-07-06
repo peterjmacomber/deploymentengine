@@ -1,0 +1,2 @@
+# This folder holds portable DB backups (data/backup.db).
+# The .db backup itself is gitignored; this keeps the folder in git.
