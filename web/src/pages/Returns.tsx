@@ -48,9 +48,10 @@ export function Returns({ kind = 'return' }: { kind?: 'return' | 'swap' }) {
   const can = useAuth((s) => s.can);
   const qc = useQueryClient();
   const toast = useToast();
+  const [sp] = useSearchParams();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ ...BLANK, returnType: (kind === 'swap' ? ReturnType.REPLACEMENT : ReturnType.RETURN) as ReturnType });
-  const [statusTab, setStatusTab] = useState('all');
+  const [statusTab, setStatusTab] = useState(() => (STATUS_TABS.some((t) => t.key === sp.get('tab')) ? sp.get('tab')! : 'all'));
   const isSwaps = kind === 'swap';
   const noun = isSwaps ? 'swap' : 'return';
 
@@ -73,7 +74,6 @@ export function Returns({ kind = 'return' }: { kind?: 'return' | 'swap' }) {
     return 'blue';
   };
 
-  const [sp] = useSearchParams();
   const ctl = useTableControls(kindRows, {
     search: (r) => `#${r.id} ${r.pospReturnId ?? ''} ${r.mid ?? ''} ${r.merchantDba ?? ''} ${r.notes ?? ''} ${r.items[0]?.reasonCode ?? ''}`,
     searchPlaceholder: 'Search RMA #, MID, DBA, reason…',

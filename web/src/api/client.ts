@@ -146,6 +146,8 @@ export const api = {
       request<{
         kpis: Record<string, number>;
         ordersByStatus: Record<string, number>;
+        swaps: number;
+        billing: { totalOrderValue: number; returnsValue: number; warrantyReturns: number; billedReturns: number };
         recentOrders: Order[];
       }>('GET', '/api/v1/dashboard'),
   },

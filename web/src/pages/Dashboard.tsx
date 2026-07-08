@@ -6,7 +6,7 @@ import { Card, Kpi, Loading, StatusBadge } from '../components/ui';
 import { DataTable } from '../components/DataTable';
 import { api } from '../api/client';
 import { useAuth } from '../stores/authStore';
-import { date, titleCase } from '../lib/format';
+import { date, money, titleCase } from '../lib/format';
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -45,8 +45,29 @@ export function Dashboard() {
                       <strong>{count}</strong>
                     </div>
                   ))}
+                  <div className="row between clickable-row" onClick={() => navigate('/swaps')} style={{ cursor: 'pointer' }}>
+                    <StatusBadge status="SWAPS" />
+                    <strong>{data.swaps}</strong>
+                  </div>
                 </div>
               )}
+
+              <div style={{ borderTop: '1px solid var(--border)', margin: '14px 0 10px' }} />
+              <h3 style={{ marginBottom: 8 }}>Billing</h3>
+              <div className="grid" style={{ gap: 8 }}>
+                <div className="row between clickable-row" onClick={() => navigate('/orders')} style={{ cursor: 'pointer' }}>
+                  <span className="muted small">Total orders</span><strong>{money(data.billing.totalOrderValue)}</strong>
+                </div>
+                <div className="row between clickable-row" onClick={() => navigate('/returns')} style={{ cursor: 'pointer' }}>
+                  <span className="muted small">Returns (equipment value)</span><strong>{money(data.billing.returnsValue)}</strong>
+                </div>
+                <div className="row between clickable-row" onClick={() => navigate('/returns?tab=closed_return')} style={{ cursor: 'pointer' }}>
+                  <span className="muted small">Warranty returns <span className="muted" title="Closed by Return — no charge">ⓘ</span></span><strong>{data.billing.warrantyReturns}</strong>
+                </div>
+                <div className="row between clickable-row" onClick={() => navigate('/returns?tab=closed_billing')} style={{ cursor: 'pointer' }}>
+                  <span className="muted small">Billed returns <span className="muted" title="Closed by Return after Billing — a charge was involved (out-of-warranty, damage, repair, etc.)">ⓘ</span></span><strong>{data.billing.billedReturns}</strong>
+                </div>
+              </div>
             </Card>
 
             <Card>
