@@ -28,6 +28,7 @@ import { auditRouter } from './routes/audit.js';
 import { devRouter } from './routes/dev.js';
 import { fortisRouter } from './routes/fortis.js';
 import { portalRouter } from './routes/portal.js';
+import { reportedIssuesRouter } from './routes/reportedIssues.js';
 import { publicRouter } from './routes/public.js';
 import { webhookRouter } from './routes/webhooks.js';
 
@@ -71,6 +72,7 @@ export function buildApp(): Express {
   v1.use('/audit', auditRouter);
   v1.use('/fortis', fortisRouter);
   v1.use('/portal', portalRouter); // merchant self-service (PORTAL_USE + own-merchant scope)
+  v1.use('/reported-issues', reportedIssuesRouter); // management view of portal issue reports
   v1.use('/dev', devRouter);
   app.use('/api/v1', globalLimiter, v1);
 

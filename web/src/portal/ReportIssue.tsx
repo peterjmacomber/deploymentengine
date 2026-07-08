@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { DeployedEquipment } from '@de/shared';
 import { api, ApiError, type PortalIssueDef, type PortalIssueResult } from '../api/client';
@@ -11,6 +11,7 @@ import { deployedBrand } from '../lib/brand';
 type Step = 'device' | 'issue' | 'help' | 'confirm' | 'done';
 
 export function ReportIssue() {
+  const navigate = useNavigate();
   const opts = useQuery({ queryKey: ['portal-issue-options'], queryFn: api.portal.issueOptions });
   const [step, setStep] = useState<Step>('device');
   const [device, setDevice] = useState<DeployedEquipment | null>(null);
@@ -18,6 +19,11 @@ export function ReportIssue() {
   const [wantsReplacement, setWantsReplacement] = useState(false);
   const [notes, setNotes] = useState('');
   const [result, setResult] = useState<PortalIssueResult | null>(null);
+
+  const resolved = useMutation({
+    mutationFn: () => api.portal.resolveIssue({ issueCode: issue!.code, deployedEquipmentId: device?.id, serialNumber: device?.serialNumber, notes: notes || undefined }),
+    onSettled: () => navigate('/portal'),
+  });
 
   const submit = useMutation({
     mutationFn: () => api.portal.submitIssue({
@@ -87,7 +93,7 @@ export function ReportIssue() {
                 {issue.help.map((h, i) => <li key={i}>{h}</li>)}
               </ol>
               <div className="row" style={{ gap: 8, marginTop: 12 }}>
-                <Link className="btn" to="/portal">That fixed it 🎉</Link>
+                <button className="btn" disabled={resolved.isPending} onClick={() => resolved.mutate()}>That fixed it 🎉</button>
                 <button className="btn primary" onClick={() => setStep('confirm')}>Still not working →</button>
               </div>
             </Card>

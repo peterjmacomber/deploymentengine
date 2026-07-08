@@ -1,5 +1,5 @@
 import { type Request, Router } from 'express';
-import { Permission, submitIssueSchema } from '@de/shared';
+import { Permission, resolvedIssueSchema, submitIssueSchema } from '@de/shared';
 import { portalService } from '../../services/portalService.js';
 import { requirePermission } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
@@ -64,5 +64,17 @@ portalRouter.post(
     const result = await portalService.submitIssue(merchantId, req.body, actor(req));
     req.auditMeta = { targetType: 'return', targetId: String(result.case.id), action: 'portal.issue.submit' };
     res.status(201).json(result);
+  }),
+);
+
+// A merchant resolved an issue via the self-service tips (logged, no case opened).
+portalRouter.post(
+  '/issues/resolved',
+  validate(resolvedIssueSchema),
+  asyncHandler(async (req, res) => {
+    const merchantId = scopedMerchantId(req);
+    await portalService.recordSelfResolved(merchantId, req.body, actor(req));
+    req.auditMeta = { targetType: 'merchant', targetId: String(merchantId), action: 'portal.issue.self-resolved' };
+    res.status(204).end();
   }),
 );

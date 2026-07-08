@@ -216,6 +216,22 @@ export const portalService = {
     );
 
     const pending = rc.lifecycle === ReturnLifecycle.PENDING_APPROVAL;
+    // Log the reported issue so Management can see it (self-resolved vs swap/return + links).
+    await prisma.reportedIssue.create({
+      data: {
+        merchantId,
+        merchantDba: (await prisma.merchant.findUnique({ where: { id: merchantId }, select: { dbaName: true } }))?.dbaName ?? null,
+        serialNumber: device?.serialNumber ?? input.serialNumber ?? null,
+        deviceProduct: device?.productName ?? device?.model ?? null,
+        issueCode: issue.code,
+        issueLabel: issue.label,
+        notes: input.notes ?? null,
+        outcome: pending ? 'pending_review' : remedy === ReturnType.REPLACEMENT ? 'swap' : 'return',
+        returnCaseId: rc.id,
+        replacementOrderId: rc.replacementOrderId ?? null,
+        createdBy: requestedBy,
+      },
+    });
     return {
       case: rc,
       outcome: pending ? 'pending_review' : 'submitted',
@@ -225,5 +241,34 @@ export const portalService = {
           ? 'A replacement has been started and a prepaid call tag issued for the old device. You’ll receive tracking soon.'
           : 'A prepaid call tag has been issued to return your device. You’ll receive the shipping details soon.',
     };
+  },
+
+  /** Record that a merchant resolved an issue via self-service (no case opened). */
+  async recordSelfResolved(
+    merchantId: number,
+    input: { issueCode: string; deployedEquipmentId?: number; serialNumber?: string; notes?: string },
+    requestedBy: string,
+  ): Promise<void> {
+    const issue = issueByCode(input.issueCode);
+    let device: DeployedEquipment | null = null;
+    if (input.deployedEquipmentId) device = await deployedEquipmentService.get(input.deployedEquipmentId).catch(() => null);
+    else if (input.serialNumber) {
+      const row = await prisma.deployedEquipment.findFirst({ where: { serialNumber: input.serialNumber, merchantId } });
+      if (row) device = await deployedEquipmentService.get(row.id);
+    }
+    if (device && device.merchantId !== merchantId) return; // ignore cross-merchant
+    await prisma.reportedIssue.create({
+      data: {
+        merchantId,
+        merchantDba: (await prisma.merchant.findUnique({ where: { id: merchantId }, select: { dbaName: true } }))?.dbaName ?? null,
+        serialNumber: device?.serialNumber ?? input.serialNumber ?? null,
+        deviceProduct: device?.productName ?? device?.model ?? null,
+        issueCode: issue?.code ?? input.issueCode,
+        issueLabel: issue?.label ?? input.issueCode,
+        notes: input.notes ?? null,
+        outcome: 'self_resolved',
+        createdBy: requestedBy,
+      },
+    });
   },
 };

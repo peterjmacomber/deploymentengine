@@ -20,6 +20,7 @@ import { Bundles } from './pages/Bundles';
 import { Pricing } from './pages/Pricing';
 import { Policies } from './pages/Policies';
 import { Approvals } from './pages/Approvals';
+import { ReportedIssues } from './pages/ReportedIssues';
 import { Users } from './pages/Users';
 import { ApiKeys } from './pages/ApiKeys';
 import { FortisGateway } from './pages/FortisGateway';
@@ -108,6 +109,7 @@ export function App() {
       <Route path="/pricing" element={<Protected><Pricing /></Protected>} />
       <Route path="/policies" element={<Protected><Policies /></Protected>} />
       <Route path="/approvals" element={<Protected><Approvals /></Protected>} />
+      <Route path="/reported-issues" element={<Protected><ReportedIssues /></Protected>} />
       <Route path="/users" element={<Protected><Users /></Protected>} />
       <Route path="/api-keys" element={<Protected><ApiKeys /></Protected>} />
       <Route path="/fortis" element={<Protected><FortisGateway /></Protected>} />

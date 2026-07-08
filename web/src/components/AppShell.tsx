@@ -23,6 +23,7 @@ const GROUPS: { group: string; items: NavDef[] }[] = [
     group: 'Management',
     items: [
       { to: '/approvals', label: 'Approvals', icon: '✔', perm: Permission.EXCEPTION_APPROVE, badge: 'approvals' },
+      { to: '/reported-issues', label: 'Reported Issues', icon: '⚑', perm: Permission.EXCEPTION_APPROVE },
       { to: '/forecasting', label: 'Forecasting', icon: '▦', perm: Permission.EXCEPTION_APPROVE },
       { to: '/links', label: 'Checkout Generator', icon: '⊞', perm: Permission.LINK_WRITE },
       { to: '/users', label: 'Users', icon: '⚇', perm: Permission.USER_READ },

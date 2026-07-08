@@ -23,6 +23,7 @@ import type {
   InventoryItem,
   Merchant,
   Order,
+  ReportedIssue,
   ReturnCase,
   ShippingMethod,
   ShippingTier,
@@ -288,6 +289,11 @@ export const api = {
     issueOptions: () => request<{ devices: DeployedEquipment[]; issues: PortalIssueDef[] }>('GET', '/api/v1/portal/issues/options'),
     submitIssue: (input: { issueCode: string; deployedEquipmentId?: number; serialNumber?: string; wantsReplacement?: boolean; notes?: string }) =>
       request<PortalIssueResult>('POST', '/api/v1/portal/issues', input),
+    resolveIssue: (input: { issueCode: string; deployedEquipmentId?: number; serialNumber?: string; notes?: string }) =>
+      request<void>('POST', '/api/v1/portal/issues/resolved', input),
+  },
+  reportedIssues: {
+    list: () => request<{ issues: ReportedIssue[] }>('GET', '/api/v1/reported-issues'),
   },
   dev2: {
     importSandbox: (fresh: boolean, orders = 60) => request<{ bundles: number; orders: number; deployed: number; merchants: number; returns: number; priced: number }>('POST', '/api/v1/dev/import-sandbox', { fresh, orders }),

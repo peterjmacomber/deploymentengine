@@ -282,6 +282,25 @@ model DeploymentLink {
   @@index([active])
 }
 
+model ReportedIssue {
+  id                 Int      @id @default(autoincrement())
+  merchantId         Int
+  merchantDba        String?
+  serialNumber       String?
+  deviceProduct      String?
+  issueCode          String
+  issueLabel         String
+  notes              String?
+  outcome            String // self_resolved | return | swap | pending_review
+  returnCaseId       Int?
+  replacementOrderId Int?
+  createdBy          String? // the merchant login / impersonating actor
+  createdAt          DateTime @default(now())
+
+  @@index([merchantId])
+  @@index([createdAt])
+}
+
 model Setting {
   key       String   @id
   valueJson String

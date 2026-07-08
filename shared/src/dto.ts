@@ -185,6 +185,15 @@ export const submitIssueSchema = z.object({
 });
 export type SubmitIssueInput = z.infer<typeof submitIssueSchema>;
 
+/** Logged when a merchant resolves an issue via the self-service tips (no case opened). */
+export const resolvedIssueSchema = z.object({
+  issueCode: z.string().min(1).max(40),
+  deployedEquipmentId: z.number().int().positive().optional(),
+  serialNumber: z.string().max(60).optional(),
+  notes: z.string().max(2000).optional(),
+});
+export type ResolvedIssueInput = z.infer<typeof resolvedIssueSchema>;
+
 // ---------------------------------------------------------------------------
 // Deployment links (custom order / application landing pages)
 // ---------------------------------------------------------------------------

@@ -190,7 +190,14 @@ export class LivePosPortalAdapter implements PosPortalAdapter {
 
   async getOrderItems(pospOrderId: number) {
     const res = await this.http.get(`/orders/${pospOrderId}/items`).catch(() => ({ data: [] }));
-    return unwrapList<{ product?: { id: number; name?: string; modelNumber?: string }; quantity: number; serialNumbers?: string[] }>(res.data);
+    const raw = unwrapList<{ product?: { id: number; name?: string; modelNumber?: string }; quantity: number; serialNumbers?: string[]; childItems?: unknown[] }>(res.data);
+    // Serials on bundle lines live on their childItems (the actual devices) — flatten them up so
+    // callers (order refresh, shipment poller) see the serials at the line level.
+    const flatten = (node: { serialNumbers?: string[]; childItems?: unknown[] }): string[] => [
+      ...((node.serialNumbers ?? []) as string[]),
+      ...(((node.childItems ?? []) as Array<{ serialNumbers?: string[]; childItems?: unknown[] }>).flatMap(flatten)),
+    ].filter(Boolean);
+    return raw.map((it) => ({ product: it.product, quantity: it.quantity, serialNumbers: flatten(it) }));
   }
 
   async getDeployedEquipmentByOrder(pospOrderId: number): Promise<PospDeployedItem[]> {

@@ -14,11 +14,20 @@ import { api } from '../api/client';
 import { useAuth } from '../stores/authStore';
 import { date, money, titleCase } from '../lib/format';
 
+/**
+ * Internal / no-outbound orders: transfers and consigned inventory movements. POS Portal flags
+ * these with the "No Outbound Shipment" service level and a NON_CARRIER carrier (verified against
+ * the sandbox Fortis-SELLOVER consignment orders) — no package ever ships to a merchant.
+ */
+export const isNoOutbound = (o: Order): boolean =>
+  o.shippingCarrier?.toUpperCase() === 'NON_CARRIER' || /no outbound/i.test(o.shippingMethodLabel ?? '');
+
 const PHASES: { key: string; label: string; match: (o: Order) => boolean }[] = [
   { key: 'all', label: 'All', match: () => true },
-  { key: 'pending', label: 'Pending shipment', match: (o) => ([OrderStatus.DRAFT, OrderStatus.PLACED, OrderStatus.IN_PREP, OrderStatus.BACKORDERED] as OrderStatus[]).includes(o.status) },
-  { key: 'shipped', label: 'Shipped', match: (o) => ([OrderStatus.SHIPPED, OrderStatus.OUT_FOR_DELIVERY, OrderStatus.RESHIPPED] as OrderStatus[]).includes(o.status) },
-  { key: 'delivered', label: 'Delivered', match: (o) => o.status === OrderStatus.DELIVERED },
+  { key: 'pending', label: 'Pending shipment', match: (o) => !isNoOutbound(o) && ([OrderStatus.DRAFT, OrderStatus.PLACED, OrderStatus.IN_PREP, OrderStatus.BACKORDERED] as OrderStatus[]).includes(o.status) },
+  { key: 'shipped', label: 'Shipped', match: (o) => !isNoOutbound(o) && ([OrderStatus.SHIPPED, OrderStatus.OUT_FOR_DELIVERY, OrderStatus.RESHIPPED] as OrderStatus[]).includes(o.status) },
+  { key: 'delivered', label: 'Delivered', match: (o) => !isNoOutbound(o) && o.status === OrderStatus.DELIVERED },
+  { key: 'noOutbound', label: 'No Outbound', match: (o) => isNoOutbound(o) },
   { key: 'swaps', label: 'Swaps in progress', match: (o) => o.classification === OrderClassification.REPLACEMENT && !([OrderStatus.DELIVERED, OrderStatus.CANCELLED] as OrderStatus[]).includes(o.status) },
   { key: 'returned', label: 'Returned', match: (o) => ([OrderStatus.RETURNED, OrderStatus.RETURNED_HOLDING] as OrderStatus[]).includes(o.status) },
   { key: 'cancelled', label: 'Cancelled', match: (o) => o.status === OrderStatus.CANCELLED },
@@ -69,7 +78,7 @@ export function Orders() {
         </div>
       ),
     },
-    { key: 'type', label: 'Type', header: 'Type', sort: (o) => o.classification, cell: (o) => <span className="small">{titleCase(o.classification)}</span> },
+    { key: 'type', label: 'Type', header: 'Type', sort: (o) => o.classification, cell: (o) => (isNoOutbound(o) ? <Badge tone="gray">Internal transfer</Badge> : <span className="small">{titleCase(o.classification)}</span>) },
     { key: 'items', label: 'Items', header: 'Items', sort: (o) => units(o), cell: (o) => units(o) },
     {
       key: 'serials', label: 'Serials', header: 'Serials',
@@ -81,7 +90,9 @@ export function Orders() {
           </div>
         : o.status === OrderStatus.CANCELLED
           ? <span className="muted">—</span>
-          : <Badge tone="amber">Pending</Badge>),
+          : isNoOutbound(o)
+            ? <Badge tone="gray">Internal transfer</Badge>
+            : <Badge tone="amber">Pending</Badge>),
     },
     { key: 'origin', label: 'Origin', header: 'Origin', sort: (o) => (o.originLinkName ? `link ${o.originLinkName}` : titleCase(o.method)), cell: (o) => (o.originLinkName ? <span className="small"><span className="badge teal">link</span> {o.originLinkName}</span> : <span className="small muted">{titleCase(o.method)}</span>) },
     { key: 'shipping', label: 'Shipping method', header: 'Shipping', sort: (o) => o.shippingMethodLabel ?? '', cell: (o) => <span className="small">{o.shippingMethodLabel ?? '—'}</span> },

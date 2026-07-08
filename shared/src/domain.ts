@@ -362,6 +362,23 @@ export interface AuthenticatedPrincipal {
   impersonatedBy?: string;
 }
 
+export interface ReportedIssue {
+  id: number;
+  merchantId: number;
+  merchantDba?: string;
+  serialNumber?: string;
+  deviceProduct?: string;
+  issueCode: string;
+  issueLabel: string;
+  notes?: string;
+  /** self_resolved | return | swap | pending_review */
+  outcome: 'self_resolved' | 'return' | 'swap' | 'pending_review';
+  returnCaseId?: number;
+  replacementOrderId?: number;
+  createdBy?: string;
+  createdAt: string;
+}
+
 export interface AuditEntry {
   id: number;
   actor: string;

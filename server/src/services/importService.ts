@@ -153,17 +153,29 @@ async function importOrders(limit: number): Promise<{ orders: number; deployed: 
   for (const o of orders) {
     const localMerchantId = await ensureMerchant(o.merchantId, o.mid, o.shipping?.address?.merchantName);
 
-    // Line items + serials
+    // Line items + serials. POS Portal bundle lines carry a generic name ("Bundle") and NO
+    // serials at the top level — the real device (with its serial + model) sits in childItems.
+    // So we recurse into childItems for serials and surface the device name on the line.
     let items: any[] = [];
     try { items = resultOf(await apiGet(`/orders/${o.id}/items`)); } catch { items = []; }
-    const lines = items.map((it) => ({
-      pospBundleId: it.product?.id ?? 0,
-      name: it.product?.name ?? 'Item',
-      quantity: it.quantity ?? 1,
-      unitPrice: it.price != null ? Number(it.price) : undefined,
-    }));
+    const deviceChild = (it: any): any =>
+      (it.childItems ?? []).find((c: any) => (c.serialNumbers?.length ?? 0) > 0 || (c.expectedSerialNumbers?.length ?? 0) > 0 || c.childType === 'DEVICE');
+    const lines = items.map((it) => {
+      const dev = deviceChild(it);
+      const name = it.product?.name && it.product.name !== 'Bundle' ? it.product.name : dev?.product?.name ?? it.product?.name ?? 'Item';
+      return {
+        pospBundleId: it.product?.id ?? 0,
+        name,
+        quantity: it.quantity ?? 1,
+        unitPrice: it.price != null ? Number(it.price) : undefined,
+      };
+    });
     const allSerials: Array<{ serial: string; item: any }> = [];
-    for (const it of items) for (const s of it.serialNumbers ?? []) if (s) allSerials.push({ serial: s, item: it });
+    const collectSerials = (node: any) => {
+      for (const s of node.serialNumbers ?? []) if (s) allSerials.push({ serial: s, item: node });
+      for (const c of node.childItems ?? []) collectSerials(c);
+    };
+    for (const it of items) collectSerials(it);
 
     const status = canonicalOrderStatus(o.status);
     const shipped = ([OrderStatus.SHIPPED, OrderStatus.DELIVERED, OrderStatus.RESHIPPED] as OrderStatus[]).includes(status);
