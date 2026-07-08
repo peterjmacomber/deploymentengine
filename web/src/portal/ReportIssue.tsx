@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { DeployedEquipment } from '@de/shared';
 import { api, ApiError, type PortalIssueDef, type PortalIssueResult } from '../api/client';
@@ -12,9 +12,18 @@ type Step = 'device' | 'issue' | 'help' | 'confirm' | 'done';
 
 export function ReportIssue() {
   const navigate = useNavigate();
+  const [sp] = useSearchParams();
+  const orderParam = sp.get('order');
   const opts = useQuery({ queryKey: ['portal-issue-options'], queryFn: api.portal.issueOptions });
   const [step, setStep] = useState<Step>('device');
   const [device, setDevice] = useState<DeployedEquipment | null>(null);
+
+  // When arriving from a specific order, pre-select that order's device and skip to the problem step.
+  useEffect(() => {
+    if (!orderParam || device) return;
+    const match = (opts.data?.devices ?? []).find((d) => d.orderId === Number(orderParam));
+    if (match) { setDevice(match); setStep('issue'); }
+  }, [orderParam, opts.data, device]);
   const [issue, setIssue] = useState<PortalIssueDef | null>(null);
   const [wantsReplacement, setWantsReplacement] = useState(false);
   const [notes, setNotes] = useState('');

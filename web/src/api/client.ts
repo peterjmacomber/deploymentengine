@@ -1,4 +1,5 @@
 import type {
+  AddressInput,
   AddressValidationResult,
   ApiKey,
   AuditEntry,
@@ -286,6 +287,9 @@ export const api = {
     order: (id: number) => request<{ order: Order }>('GET', `/api/v1/portal/orders/${id}`),
     returns: () => request<{ returns: ReturnCase[] }>('GET', '/api/v1/portal/returns'),
     deployed: () => request<{ equipment: DeployedEquipment[] }>('GET', '/api/v1/portal/deployed'),
+    catalog: () => request<{ bundles: Bundle[]; shippingAddress: AddressInput | null }>('GET', '/api/v1/portal/catalog'),
+    createOrder: (input: { cart: Array<{ pospBundleId: number; quantity: number }>; shippingAddress?: AddressInput; notes?: string }) =>
+      request<{ order: Order }>('POST', '/api/v1/portal/orders', input),
     issueOptions: () => request<{ devices: DeployedEquipment[]; issues: PortalIssueDef[] }>('GET', '/api/v1/portal/issues/options'),
     submitIssue: (input: { issueCode: string; deployedEquipmentId?: number; serialNumber?: string; wantsReplacement?: boolean; notes?: string }) =>
       request<PortalIssueResult>('POST', '/api/v1/portal/issues', input),

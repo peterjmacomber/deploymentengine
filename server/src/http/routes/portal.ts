@@ -1,5 +1,5 @@
 import { type Request, Router } from 'express';
-import { Permission, resolvedIssueSchema, submitIssueSchema } from '@de/shared';
+import { Permission, portalCreateOrderSchema, resolvedIssueSchema, submitIssueSchema } from '@de/shared';
 import { portalService } from '../../services/portalService.js';
 import { requirePermission } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
@@ -51,6 +51,23 @@ portalRouter.get('/returns/:id', asyncHandler(async (req, res) => {
 portalRouter.get('/deployed', asyncHandler(async (req, res) => {
   res.json({ equipment: await portalService.deployed(scopedMerchantId(req)) });
 }));
+
+portalRouter.get('/catalog', asyncHandler(async (req, res) => {
+  scopedMerchantId(req); // ensure a merchant session
+  const [bundles, shippingAddress] = await Promise.all([portalService.catalog(), portalService.shippingAddress(scopedMerchantId(req))]);
+  res.json({ bundles, shippingAddress });
+}));
+
+portalRouter.post(
+  '/orders',
+  validate(portalCreateOrderSchema),
+  asyncHandler(async (req, res) => {
+    const merchantId = scopedMerchantId(req);
+    const order = await portalService.createOrder(merchantId, req.body, actor(req));
+    req.auditMeta = { targetType: 'order', targetId: String(order.id), action: 'portal.order.create' };
+    res.status(201).json({ order });
+  }),
+);
 
 portalRouter.get('/issues/options', asyncHandler(async (req, res) => {
   res.json(await portalService.issueOptions(scopedMerchantId(req)));

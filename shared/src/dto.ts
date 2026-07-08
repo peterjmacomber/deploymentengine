@@ -185,6 +185,14 @@ export const submitIssueSchema = z.object({
 });
 export type SubmitIssueInput = z.infer<typeof submitIssueSchema>;
 
+/** A merchant self-service order from the portal. Shipping defaults to the merchant's address. */
+export const portalCreateOrderSchema = z.object({
+  cart: z.array(cartLineSchema).min(1, 'Add at least one item'),
+  shippingAddress: addressSchema.optional(),
+  notes: z.string().max(2000).optional(),
+});
+export type PortalCreateOrderInput = z.infer<typeof portalCreateOrderSchema>;
+
 /** Logged when a merchant resolves an issue via the self-service tips (no case opened). */
 export const resolvedIssueSchema = z.object({
   issueCode: z.string().min(1).max(40),

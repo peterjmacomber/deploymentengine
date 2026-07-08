@@ -92,13 +92,23 @@ class LiveFortisAdapter implements FortisAdapter {
   async searchLocations(query: string, limit = 25): Promise<FortisLocation[]> {
     const base = config.FORTIS_BASE_URL;
     if (!base || !config.FORTIS_USER_ID) return [];
+    const q = query.trim();
+    if (!q) return [];
+    // The sandbox has 8,500+ locations across many pages, so a single-page client-side scan
+    // misses most accounts. Fortis supports server-side filters — query name AND account number
+    // and merge. (Each filtered call is scoped server-side, so it searches the whole dataset.)
+    const fetchWith = async (params: Record<string, unknown>): Promise<any[]> => {
+      const res = await axios.get(`${base}/v1/locations`, { headers: this.headers(), params: { ...params, 'page[size]': 100 }, timeout: 30_000, validateStatus: () => true });
+      return res.status >= 200 && res.status < 300 ? res.data?.list ?? res.data?.data ?? [] : [];
+    };
     try {
-      // Fortis's query-param filters are unreliable, so we filter client-side over a page.
-      const res = await axios.get(`${base}/v1/locations`, { headers: this.headers(), params: { 'page[number]': 1, 'page[size]': 500 }, timeout: 30_000, validateStatus: () => true });
-      const list: any[] = res.data?.list ?? res.data?.data ?? [];
-      const q = query.trim().toLowerCase();
-      return list
-        .filter((l) => !q || `${l.name ?? ''} ${l.account_number ?? ''}`.toLowerCase().includes(q))
+      const [byName, byAccount] = await Promise.all([
+        fetchWith({ 'filter[name]': q }),
+        fetchWith({ 'filter[account_number]': q }),
+      ]);
+      const merged = new Map<string, any>();
+      for (const l of [...byName, ...byAccount]) merged.set(String(l.id), l);
+      return [...merged.values()]
         .slice(0, limit)
         .map((l) => ({ id: String(l.id), name: l.name ?? '', accountNumber: l.account_number ?? null, locationType: l.location_type ?? undefined }));
     } catch (err) {

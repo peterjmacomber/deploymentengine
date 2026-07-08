@@ -1,18 +1,24 @@
 import {
+  type AddressInput,
+  type Bundle,
   type DeployedEquipment,
   type Merchant,
   type Order,
+  OrderMethod,
+  type PortalCreateOrderInput,
   type ReturnCase,
   ReturnLifecycle,
   ReturnReasonCode,
   ReturnType,
 } from '@de/shared';
 import { prisma } from '../db.js';
-import { forbidden, notFound } from '../util/errors.js';
+import { badRequest, forbidden, notFound } from '../util/errors.js';
+import { fromJson } from '../util/json.js';
 import { orderService } from './orderService.js';
 import { returnService } from './returnService.js';
 import { deployedEquipmentService } from './deployedEquipmentService.js';
 import { merchantService } from './merchantService.js';
+import { bundleService } from './bundleService.js';
 
 /**
  * A guided self-service issue (Amazon-style). Each maps to a canonical return reason + type and
@@ -157,6 +163,30 @@ export const portalService = {
 
   async deployed(merchantId: number): Promise<DeployedEquipment[]> {
     return deployedEquipmentService.list({ merchantId });
+  },
+
+  /** Active bundles the merchant can order. */
+  async catalog(): Promise<Bundle[]> {
+    return bundleService.listActive();
+  },
+
+  /** The merchant's saved shipping address (to pre-fill the order form). */
+  async shippingAddress(merchantId: number): Promise<AddressInput | null> {
+    const m = await prisma.merchant.findUnique({ where: { id: merchantId }, select: { shippingAddressJson: true } });
+    return fromJson<AddressInput | null>(m?.shippingAddressJson ?? null, null);
+  },
+
+  /** Place a new equipment order for the merchant, defaulting to their address on file. */
+  async createOrder(merchantId: number, input: PortalCreateOrderInput, createdBy: string): Promise<Order> {
+    const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
+    if (!merchant) throw notFound('Merchant not found');
+    if (!merchant.mid) throw badRequest('Your account has no MID on file yet — please contact support to place orders.');
+    const shippingAddress = input.shippingAddress ?? fromJson<AddressInput | null>(merchant.shippingAddressJson, null);
+    if (!shippingAddress) throw badRequest('No shipping address on file. Add one before ordering.');
+    return orderService.create(
+      { merchantId, mid: merchant.mid, cart: input.cart, shippingAddress, notes: input.notes },
+      { createdBy, method: OrderMethod.PORTAL_ACCESS },
+    );
   },
 
   /** Devices + the issue catalog the report-an-issue wizard renders. */
