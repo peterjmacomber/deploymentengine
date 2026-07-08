@@ -37,7 +37,16 @@ const MANAGER_GRANTS: Permission[] = [
   // Managers manage users too, but only below their own level (enforced server-side).
   P.USER_READ,
   P.USER_WRITE,
+  // Managers can view any merchant's portal by impersonation.
+  P.MERCHANT_IMPERSONATE,
 ];
+
+/**
+ * Merchant self-service login. Deliberately holds NO internal permission — only PORTAL_USE —
+ * so a merchant token cannot read any internal list route. Every /portal endpoint independently
+ * forces the merchant's own merchantId, so this grant is safe and self-contained.
+ */
+const MERCHANT_GRANTS: Permission[] = [P.PORTAL_USE];
 
 const ADMIN_GRANTS: Permission[] = [
   ...MANAGER_GRANTS,
@@ -46,6 +55,8 @@ const ADMIN_GRANTS: Permission[] = [
   P.AUDIT_READ,
   P.APIKEY_MANAGE,
   P.DEV_TOOLS,
+  // Managers may disable a link; only admins may permanently delete one.
+  P.LINK_DELETE,
 ];
 
 // External partner principal: only what the embed flow needs.
@@ -78,6 +89,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   [Role.AGENT]: AGENT_GRANTS,
   [Role.MANAGER]: MANAGER_GRANTS,
   [Role.ADMIN]: ADMIN_GRANTS,
+  [Role.MERCHANT]: MERCHANT_GRANTS,
   [Role.PARTNER]: PARTNER_GRANTS,
   [Role.APIKEY]: API_KEY_GRANTS,
 };
@@ -90,23 +102,24 @@ export function roleHasPermission(role: Role, perm: Permission): boolean {
   return permissionsForRole(role).includes(perm);
 }
 
-/** Privilege ordering for internal login roles. Partners are not login users (rank 0). */
+/** Privilege ordering for login roles. Partners/API keys are not login users (rank 0). */
 export const ROLE_RANK: Record<Role, number> = {
   [Role.PARTNER]: 0,
   [Role.APIKEY]: 0,
-  [Role.READONLY]: 1,
-  [Role.AGENT]: 2,
-  [Role.MANAGER]: 3,
-  [Role.ADMIN]: 4,
+  [Role.MERCHANT]: 1, // external self-service login — lowest privilege
+  [Role.READONLY]: 2,
+  [Role.AGENT]: 3,
+  [Role.MANAGER]: 4,
+  [Role.ADMIN]: 5,
 };
 
 /**
  * Whether `actor` may create/modify a user with role `target`. Admins manage every internal
  * role (including other admins); everyone else may only manage roles strictly below their own.
- * Partner is never a manageable login role.
+ * Partner/API-key are never manageable login roles.
  */
 export function canManageRole(actor: Role, target: Role): boolean {
-  if (target === Role.PARTNER) return false;
+  if (target === Role.PARTNER || target === Role.APIKEY) return false;
   if (actor === Role.ADMIN) return true;
   return ROLE_RANK[target] < ROLE_RANK[actor];
 }

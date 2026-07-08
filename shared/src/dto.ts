@@ -167,6 +167,24 @@ export const updateUserSchema = z.object({
 });
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 
+/** Create a merchant self-service (portal) login, scoped to a merchant. */
+export const createMerchantUserSchema = z.object({
+  email: z.string().email(),
+  name: z.string().min(1).max(120),
+  password: z.string().min(10).max(200),
+});
+export type CreateMerchantUserInput = z.infer<typeof createMerchantUserSchema>;
+
+/** A self-service issue submitted from the merchant portal. */
+export const submitIssueSchema = z.object({
+  issueCode: z.string().min(1).max(40),
+  deployedEquipmentId: z.number().int().positive().optional(),
+  serialNumber: z.string().max(60).optional(),
+  wantsReplacement: z.boolean().optional(),
+  notes: z.string().max(2000).optional(),
+});
+export type SubmitIssueInput = z.infer<typeof submitIssueSchema>;
+
 // ---------------------------------------------------------------------------
 // Deployment links (custom order / application landing pages)
 // ---------------------------------------------------------------------------

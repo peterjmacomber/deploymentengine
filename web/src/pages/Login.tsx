@@ -27,7 +27,7 @@ export function Login() {
     setBusy(true);
     try {
       await login(email, password);
-      navigate('/');
+      navigate(useAuth.getState().isMerchant() ? '/portal' : '/');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Login failed');
     } finally {

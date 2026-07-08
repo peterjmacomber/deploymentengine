@@ -40,6 +40,8 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
       name: claims.name,
       role: claims.role,
       permissions: permissionsForRole(claims.role),
+      merchantId: claims.merchantId,
+      impersonatedBy: claims.imp,
     };
     next();
   } catch {

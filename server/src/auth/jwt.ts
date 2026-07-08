@@ -7,6 +7,8 @@ export interface AccessTokenClaims {
   email: string;
   name: string;
   role: Role;
+  merchantId?: number; // MERCHANT logins + impersonation tokens
+  imp?: string; // impersonation: the internal actor who minted this token
 }
 
 export function signAccessToken(claims: AccessTokenClaims): string {

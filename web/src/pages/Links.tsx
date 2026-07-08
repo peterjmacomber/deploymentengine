@@ -97,7 +97,9 @@ function buildPayload(form: FormState) {
 }
 
 export function Links() {
-  const canWrite = useAuth((s) => s.can)(Permission.LINK_WRITE);
+  const can = useAuth((s) => s.can);
+  const canWrite = can(Permission.LINK_WRITE);
+  const canDelete = can(Permission.LINK_DELETE);
   const qc = useQueryClient();
   const toast = useToast();
   const [open, setOpen] = useState(false);
@@ -218,6 +220,9 @@ export function Links() {
                 <div className="row" style={{ gap: 6 }}>
                   <button className="btn sm" onClick={() => setEditing(l)}>Manage</button>
                   <button className="btn sm" onClick={() => toggleActive.mutate(l)}>{l.active ? 'Disable' : 'Enable'}</button>
+                  {!l.active && canDelete && (
+                    <button className="btn sm danger" onClick={() => { if (confirm(`Permanently delete “${l.name}”? This cannot be undone.`)) remove.mutate(l.id); }}>Delete</button>
+                  )}
                 </div>
               ) }]
             : []),
@@ -240,6 +245,7 @@ export function Links() {
           bundles={bundlesQ.data?.bundles ?? []}
           merchants={merchantsQ.data?.merchants ?? []}
           shipping={shippingQ.data}
+          canDelete={canDelete}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); invalidate(); }}
           onDelete={() => { remove.mutate(editing.id); setEditing(null); }}
@@ -249,7 +255,7 @@ export function Links() {
   );
 }
 
-function ManageLinkModal({ link, bundles, merchants, shipping, onClose, onSaved, onDelete }: { link: DeploymentLink; bundles: Bundle[]; merchants: Merchant[]; shipping?: ShippingConfig; onClose: () => void; onSaved: () => void; onDelete: () => void }) {
+function ManageLinkModal({ link, bundles, merchants, shipping, canDelete, onClose, onSaved, onDelete }: { link: DeploymentLink; bundles: Bundle[]; merchants: Merchant[]; shipping?: ShippingConfig; canDelete: boolean; onClose: () => void; onSaved: () => void; onDelete: () => void }) {
   const toast = useToast();
   const [form, setForm] = useState<FormState>({
     type: link.type,
@@ -283,7 +289,11 @@ function ManageLinkModal({ link, bundles, merchants, shipping, onClose, onSaved,
 
   return (
     <Modal title={`Manage — ${link.name}`} onClose={onClose} footer={<>
-      <button className="btn danger" onClick={() => { if (confirm('Delete this link?')) onDelete(); }}>Delete</button>
+      {canDelete && (
+        link.active
+          ? <span className="small muted" title="Disable the link before it can be deleted.">Disable to enable delete</span>
+          : <button className="btn danger" onClick={() => { if (confirm(`Permanently delete “${link.name}”? This cannot be undone.`)) onDelete(); }}>Delete</button>
+      )}
       <div style={{ flex: 1 }} />
       <button className="btn" onClick={onClose}>Cancel</button>
       <button className="btn primary" disabled={save.isPending || !form.name || form.bundleIds.size === 0} onClick={() => save.mutate()}>Save</button>

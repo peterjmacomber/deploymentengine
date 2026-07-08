@@ -52,6 +52,9 @@ export interface Merchant {
   taxExempt?: boolean;
   supplyClub?: boolean;
   lastUpdatedAt?: string; // POS Portal lastUpdatedDate
+  fortisLocationId?: string; // linked Fortis Gateway account/location
+  fortisLocationName?: string;
+  orderCount?: number; // total orders for this merchant (list view)
   shippingAddress?: Address;
   createdAt?: string;
 }
@@ -329,6 +332,9 @@ export interface User {
   name: string;
   role: Role;
   active: boolean;
+  /** Set only for MERCHANT-role logins: the merchant this user is scoped to. */
+  merchantId?: number;
+  merchantName?: string;
   createdAt?: string;
   lastLoginAt?: string;
 }
@@ -350,6 +356,10 @@ export interface AuthenticatedPrincipal {
   name?: string;
   role: Role;
   permissions: string[];
+  /** For MERCHANT logins (and merchant impersonation tokens): the scoped merchant id. */
+  merchantId?: number;
+  /** When set, this is an impersonation token minted by the named internal actor. */
+  impersonatedBy?: string;
 }
 
 export interface AuditEntry {

@@ -289,11 +289,12 @@ export const orderService = {
     for (const serial of shipment.serialNumbers) {
       const already = await prisma.deployedEquipment.findFirst({ where: { serialNumber: serial } });
       if (already) continue;
+      // Use the merchant's linked Fortis location (set via Admin → Fortis Gateway), else the
+      // configured default location. Fortis has no MID field, so the link is explicit.
       const sync = await fortis().activateDevice({
         serialNumber: serial,
-        merchantMid: row.merchantMid ?? undefined,
-        merchantName: row.merchantDba ?? merchant?.dbaName ?? undefined,
-        merchantEmail: merchant?.email ?? undefined,
+        locationId: merchant?.fortisLocationId ?? undefined,
+        title: `${row.merchantDba ?? merchant?.dbaName ?? 'Merchant'} ${fortisLinksValue(serial)}`,
       });
       await prisma.deployedEquipment.create({
         data: {

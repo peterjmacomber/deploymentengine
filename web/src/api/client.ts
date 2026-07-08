@@ -42,6 +42,46 @@ export interface PolicyConfig {
   courtesyRequiresApproval: boolean;
 }
 
+export interface FortisTerminalConfig {
+  manufacturerCode: string;
+  applicationId: string;
+  cvmId: string;
+}
+
+export interface FortisTerminalOption {
+  id: string;
+  label: string;
+  manufacturerCode?: string;
+}
+
+export interface FortisTerminalOptions {
+  manufacturers: FortisTerminalOption[];
+  applications: FortisTerminalOption[];
+  cvms: FortisTerminalOption[];
+}
+
+export interface PortalSummary {
+  orders: number;
+  activeDevices: number;
+  openReturns: number;
+  openSwaps: number;
+}
+
+export interface PortalIssueDef {
+  code: string;
+  label: string;
+  summary: string;
+  help: string[];
+  remedy: 'RETURN' | 'REPLACEMENT' | 'REPAIR';
+  reasonCode: string;
+}
+
+export interface PortalIssueResult {
+  case: ReturnCase;
+  outcome: 'submitted' | 'pending_review';
+  message: string;
+}
+
 const TOKEN_KEY = 'de_token';
 
 export const tokenStore = {
@@ -111,6 +151,10 @@ export const api = {
     list: (search?: string) => request<{ merchants: Merchant[] }>('GET', `/api/v1/merchants${search ? `?search=${encodeURIComponent(search)}` : ''}`),
     get: (id: number) => request<{ merchant: Merchant }>('GET', `/api/v1/merchants/${id}`),
     create: (input: CreateMerchantInput) => request<{ merchant: Merchant }>('POST', '/api/v1/merchants', input),
+    portalUsers: (id: number) => request<{ users: User[] }>('GET', `/api/v1/merchants/${id}/portal-users`),
+    createPortalUser: (id: number, input: { email: string; name: string; password: string }) =>
+      request<{ user: User }>('POST', `/api/v1/merchants/${id}/portal-users`, input),
+    impersonate: (id: number) => request<{ token: string; merchant: { id: number; dbaName: string } }>('POST', `/api/v1/merchants/${id}/impersonate`),
   },
   orders: {
     list: (q: { status?: string; merchantId?: number; search?: string } = {}) => {
@@ -219,6 +263,31 @@ export const api = {
     setShipping: (cfg: ShippingConfig) => request<ShippingConfig>('PUT', '/api/v1/settings/shipping', cfg),
     getPolicy: () => request<PolicyConfig>('GET', '/api/v1/settings/policy'),
     setPolicy: (cfg: PolicyConfig) => request<PolicyConfig>('PUT', '/api/v1/settings/policy', cfg),
+  },
+  fortis: {
+    status: () => request<{
+      configured: boolean; baseUrl: string | null; merchantLoginUrl: string | null; linkField: string;
+      credentials: Record<string, boolean>;
+    }>('GET', '/api/v1/fortis/status'),
+    test: () => request<{ ok: boolean; detail: string; status?: number }>('POST', '/api/v1/fortis/test'),
+    search: (q: string) => request<{ locations: Array<{ id: string; name: string; accountNumber: string | null; locationType?: string }> }>('GET', `/api/v1/fortis/search?q=${encodeURIComponent(q)}`),
+    link: (input: { merchantId: number; fortisLocationId: string; fortisLocationName?: string }) =>
+      request<{ merchantId: number; fortisLocationId: string | null; fortisLocationName: string | null }>('POST', '/api/v1/fortis/link', input),
+    activate: (input: { serialNumber: string; locationId?: string; merchantId?: number; title?: string }) =>
+      request<{ serialNumber: string; linksValue: string; accountId?: string; terminalId?: string; activated: boolean; status: string; error?: string }>('POST', '/api/v1/fortis/activate', input),
+    terminalOptions: () => request<FortisTerminalOptions>('GET', '/api/v1/fortis/terminal-options'),
+    getTerminalDefaults: () => request<FortisTerminalConfig>('GET', '/api/v1/fortis/terminal-defaults'),
+    saveTerminalDefaults: (cfg: FortisTerminalConfig) => request<FortisTerminalConfig>('PUT', '/api/v1/fortis/terminal-defaults', cfg),
+  },
+  portal: {
+    me: () => request<{ merchant: Merchant; summary: PortalSummary; impersonatedBy: string | null }>('GET', '/api/v1/portal/me'),
+    orders: () => request<{ orders: Order[] }>('GET', '/api/v1/portal/orders'),
+    order: (id: number) => request<{ order: Order }>('GET', `/api/v1/portal/orders/${id}`),
+    returns: () => request<{ returns: ReturnCase[] }>('GET', '/api/v1/portal/returns'),
+    deployed: () => request<{ equipment: DeployedEquipment[] }>('GET', '/api/v1/portal/deployed'),
+    issueOptions: () => request<{ devices: DeployedEquipment[]; issues: PortalIssueDef[] }>('GET', '/api/v1/portal/issues/options'),
+    submitIssue: (input: { issueCode: string; deployedEquipmentId?: number; serialNumber?: string; wantsReplacement?: boolean; notes?: string }) =>
+      request<PortalIssueResult>('POST', '/api/v1/portal/issues', input),
   },
   dev2: {
     importSandbox: (fresh: boolean, orders = 60) => request<{ bundles: number; orders: number; deployed: number; merchants: number; returns: number; priced: number }>('POST', '/api/v1/dev/import-sandbox', { fresh, orders }),

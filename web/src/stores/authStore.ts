@@ -1,6 +1,8 @@
 import { create } from 'zustand';
-import { type AuthenticatedPrincipal, type Permission, permissionsForRole } from '@de/shared';
+import { type AuthenticatedPrincipal, type Permission, Role, permissionsForRole } from '@de/shared';
 import { api, tokenStore } from '../api/client';
+
+const IMP_BACKUP_KEY = 'de_token_backup';
 
 interface AuthState {
   principal: AuthenticatedPrincipal | null;
@@ -9,6 +11,12 @@ interface AuthState {
   logout: () => void;
   hydrate: () => Promise<void>;
   can: (perm: Permission) => boolean;
+  isMerchant: () => boolean;
+  isImpersonating: () => boolean;
+  /** Enter a merchant's portal as an internal actor (admin/manager). */
+  impersonate: (merchantId: number) => Promise<void>;
+  /** Return to the internal app from an impersonation session. */
+  exitImpersonation: () => Promise<void>;
 }
 
 export const useAuth = create<AuthState>((set, get) => ({
@@ -18,6 +26,7 @@ export const useAuth = create<AuthState>((set, get) => ({
   async login(email, password) {
     const { token, user } = await api.auth.login(email, password);
     tokenStore.set(token);
+    localStorage.removeItem(IMP_BACKUP_KEY);
     set({
       status: 'authed',
       principal: {
@@ -27,12 +36,14 @@ export const useAuth = create<AuthState>((set, get) => ({
         name: user.name,
         role: user.role,
         permissions: permissionsForRole(user.role),
+        merchantId: user.merchantId,
       },
     });
   },
 
   logout() {
     tokenStore.clear();
+    localStorage.removeItem(IMP_BACKUP_KEY);
     set({ principal: null, status: 'anon' });
   },
 
@@ -48,11 +59,37 @@ export const useAuth = create<AuthState>((set, get) => ({
       set({ status: 'authed', principal });
     } catch {
       tokenStore.clear();
+      localStorage.removeItem(IMP_BACKUP_KEY);
       set({ status: 'anon', principal: null });
     }
   },
 
   can(perm) {
     return get().principal?.permissions.includes(perm) ?? false;
+  },
+
+  isMerchant() {
+    return get().principal?.role === Role.MERCHANT;
+  },
+
+  isImpersonating() {
+    return Boolean(get().principal?.impersonatedBy);
+  },
+
+  async impersonate(merchantId) {
+    const { token } = await api.merchants.impersonate(merchantId);
+    const current = tokenStore.get();
+    if (current) localStorage.setItem(IMP_BACKUP_KEY, current);
+    tokenStore.set(token);
+    await get().hydrate();
+  },
+
+  async exitImpersonation() {
+    const backup = localStorage.getItem(IMP_BACKUP_KEY);
+    if (backup) {
+      tokenStore.set(backup);
+      localStorage.removeItem(IMP_BACKUP_KEY);
+    }
+    await get().hydrate();
   },
 }));

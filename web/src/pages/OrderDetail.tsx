@@ -26,8 +26,8 @@ export function OrderDetail() {
   const toast = useToast();
   const [returnOpen, setReturnOpen] = useState(false);
 
-  const { data, isLoading } = useQuery({ queryKey: ['order', orderId], queryFn: () => api.orders.get(orderId, true), refetchInterval: 15_000 });
-  const devices = useQuery({ queryKey: ['deployed', 'order', orderId], queryFn: () => api.deployed.list({ orderId }) });
+  const { data, isLoading, isError, error } = useQuery({ queryKey: ['order', orderId], queryFn: () => api.orders.get(orderId, true), refetchInterval: 15_000, retry: false, enabled: Number.isFinite(orderId) });
+  const devices = useQuery({ queryKey: ['deployed', 'order', orderId], queryFn: () => api.deployed.list({ orderId }), enabled: Number.isFinite(orderId) });
 
   const mutation = (fn: () => Promise<unknown>, ok: string) => ({
     mutationFn: fn,
@@ -38,6 +38,17 @@ export function OrderDetail() {
   const ship = useMutation(mutation(() => api.dev.ship(orderId), 'Shipment simulated — serials assigned & devices activated in Fortis Gateway'));
   const deliver = useMutation(mutation(() => api.dev.deliver(orderId, 'J. DOE'), 'Marked delivered'));
 
+  if (isError || (!isLoading && !data)) {
+    return (
+      <AppShell title="Order" actions={<button className="btn" onClick={() => navigate('/orders')}>← Orders</button>}>
+        <Card>
+          <h3 style={{ marginTop: 0 }}>Order not found</h3>
+          <p className="small muted">No order with id <span className="mono">{id}</span> exists in the Deployment Engine. This can happen if you followed a link built from a POS Portal order number rather than an internal order id.</p>
+          {error instanceof ApiError && <p className="small muted">{error.detail ?? error.message}</p>}
+        </Card>
+      </AppShell>
+    );
+  }
   if (isLoading || !data) return <AppShell title="Order"><Loading /></AppShell>;
   const o = data.order;
   const canSimulate = can(Permission.DEV_TOOLS) && CAN_SHIP.includes(o.status);

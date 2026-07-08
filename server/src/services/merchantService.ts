@@ -23,8 +23,9 @@ export const merchantService = {
         : undefined,
       orderBy: { createdAt: 'desc' },
       take: 1000,
+      include: { _count: { select: { orders: true } } },
     });
-    return rows.map(toMerchant);
+    return rows.map((r) => ({ ...toMerchant(r), orderCount: r._count.orders }));
   },
 
   async get(id: number): Promise<Merchant> {

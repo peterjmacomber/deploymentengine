@@ -29,7 +29,7 @@ export function Dashboard() {
             <Kpi label="Pending Approvals" value={data.kpis.pendingExceptions} alert={data.kpis.pendingExceptions > 0} onClick={() => navigate('/approvals?status=Pending')} />
             <Kpi label="Merchants" value={data.kpis.merchants} onClick={() => navigate('/merchants')} />
             <Kpi label="Delinquent Returns" value={data.kpis.delinquent} alert={data.kpis.delinquent > 0} onClick={() => navigate('/returns?delinquent=Delinquent')} />
-            <Kpi label="Inventory Alerts" value={data.kpis.inventoryAlerts} alert={data.kpis.inventoryAlerts > 0} onClick={() => navigate('/inventory?tab=alerts')} />
+            <Kpi label="Inventory Alerts" value={data.kpis.inventoryAlerts} alert={data.kpis.inventoryAlerts > 0} onClick={() => navigate('/forecasting?tab=alerts')} />
           </div>
 
           <div className="grid cols-2">

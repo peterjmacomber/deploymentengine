@@ -39,7 +39,7 @@ export function DeployedEquipment() {
     initial: sp.get('status') ? { facets: { status: [sp.get('status')!] } } : undefined,
     facets: [
       { key: 'status', label: 'Status', value: (e) => titleCase(e.status) },
-      { key: 'brand', label: 'Brand', value: (e) => deployedBrand(e) },
+      { key: 'brand', label: 'Manufacturer', value: (e) => deployedBrand(e) },
       { key: 'fortis', label: 'Fortis', value: (e) => (e.fortisActivated ? 'Activated' : e.fortisTerminalId ? 'Linked' : 'Not linked') },
     ],
   });
@@ -56,7 +56,7 @@ export function DeployedEquipment() {
         columns={[
           { header: 'Serial', sort: (e) => e.serialNumber, cell: (e) => <span className="mono">{e.serialNumber}</span> },
           { header: 'Product', sort: (e) => e.productName ?? '', cell: (e) => <div><div>{e.productName ?? '—'}</div><div className="small muted">{e.model ?? '—'}</div></div> },
-          { header: 'Brand', sort: (e) => deployedBrand(e) ?? '', cell: (e) => deployedBrand(e) ?? '—' },
+          { header: 'Manufacturer', sort: (e) => deployedBrand(e) ?? '', cell: (e) => deployedBrand(e) ?? '—' },
           { header: 'Merchant', sort: (e) => e.mid ?? '', cell: (e) => <Link className="rowlink mono small" to={`/merchants/${e.merchantId}`}>{e.mid ?? `#${e.merchantId}`}</Link> },
           { header: 'Status', sort: (e) => e.status, cell: (e) => <StatusBadge status={e.status} /> },
           { header: 'Deployed', sort: (e) => e.deployedAt ?? '', cell: (e) => <span className="small">{date(e.deployedAt)}</span> },

@@ -34,18 +34,32 @@ const BLANK = {
   notes: '',
 };
 
-export function Returns() {
+// Status tabs mirror the POS Portal RMA statuses (falling back to our lifecycle for engine cases).
+const STATUS_TABS: { key: string; label: string; match: (s: string) => boolean }[] = [
+  { key: 'all', label: 'All', match: () => true },
+  { key: 'open', label: 'Open', match: (s) => !s.startsWith('CLOSED') && !s.includes('CANCEL') && !s.includes('DENIED') },
+  { key: 'cancelled', label: 'Cancelled', match: (s) => s.includes('CANCEL') || s.includes('DENIED') },
+  { key: 'closed_return', label: 'Closed by Return', match: (s) => s === 'CLOSED_BY_RETURN' || s === 'CLOSED' },
+  { key: 'closed_billing', label: 'Closed by Return after Billing', match: (s) => s === 'CLOSED_BY_RETURN_AFTER_BILLING' || s === 'CLOSED_BY_BILLING' },
+];
+
+export function Returns({ kind = 'return' }: { kind?: 'return' | 'swap' }) {
   const navigate = useNavigate();
   const can = useAuth((s) => s.can);
   const qc = useQueryClient();
   const toast = useToast();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ ...BLANK });
+  const [form, setForm] = useState({ ...BLANK, returnType: (kind === 'swap' ? ReturnType.REPLACEMENT : ReturnType.RETURN) as ReturnType });
+  const [statusTab, setStatusTab] = useState('all');
+  const isSwaps = kind === 'swap';
+  const noun = isSwaps ? 'swap' : 'return';
 
   const { data, isLoading } = useQuery({
     queryKey: ['returns'],
     queryFn: () => api.returns.list({}),
   });
+  // A swap = REPLACEMENT-type case; a return = everything else (RETURN / REPAIR).
+  const kindRows = (data?.returns ?? []).filter((r) => (r.items[0]?.returnType === ReturnType.REPLACEMENT) === isSwaps);
 
   // Real status: for imported POS Portal returns show their RMA status; else our lifecycle.
   const rstatusRaw = (r: ReturnCase) => r.pospStatus ?? r.lifecycle;
@@ -60,18 +74,21 @@ export function Returns() {
   };
 
   const [sp] = useSearchParams();
-  const ctl = useTableControls(data?.returns ?? [], {
+  const ctl = useTableControls(kindRows, {
     search: (r) => `#${r.id} ${r.pospReturnId ?? ''} ${r.mid ?? ''} ${r.merchantDba ?? ''} ${r.notes ?? ''} ${r.items[0]?.reasonCode ?? ''}`,
     searchPlaceholder: 'Search RMA #, MID, DBA, reason…',
     dateField: (r) => r.createdAt,
     dateLabel: 'Opened',
     initial: sp.get('delinquent') ? { facets: { delinquent: [sp.get('delinquent')!] } } : undefined,
     facets: [
-      { key: 'status', label: 'Status', value: (r) => rstatus(r) },
-      { key: 'type', label: 'Type', value: (r) => titleCase(r.items[0]?.returnType ?? '') },
+      { key: 'reason', label: 'Reason', value: (r) => titleCase(r.items[0]?.reasonCode ?? '') },
       { key: 'delinquent', label: 'Delinquent', value: (r) => (r.delinquent ? 'Delinquent' : 'OK') },
     ],
   });
+  // Status tabs sit between the search/filters and the table (like the Orders page).
+  const activeTab = STATUS_TABS.find((t) => t.key === statusTab) ?? STATUS_TABS[0];
+  const tabbedRows = ctl.rows.filter((r) => activeTab.match(rstatusRaw(r).toUpperCase()));
+  const tabCount = (t: (typeof STATUS_TABS)[number]) => ctl.rows.filter((r) => t.match(rstatusRaw(r).toUpperCase())).length;
 
   const allColumns: Column<ReturnCase>[] = [
     { key: 'rma', label: 'RMA / #', header: 'RMA / #', sort: (r) => r.pospReturnId ?? r.id, cell: (r) => <span className="mono small">{r.pospReturnId ? `RMA ${r.pospReturnId}` : `#${r.id}`}</span> },
@@ -85,7 +102,7 @@ export function Returns() {
     { key: 'delinquent', label: 'Delinquent', header: 'Delinquent', sort: (r) => (r.delinquent ? 0 : 1), cell: (r) => (r.delinquent ? <Badge tone="red">Delinquent</Badge> : '—') },
     { key: 'created', label: 'Opened', header: 'Opened', sort: (r) => r.createdAt, cell: (r) => <span className="small">{date(r.createdAt)}</span> },
   ];
-  const { columns, menu } = useVisibleColumns('returns', allColumns, ['rma', 'dba', 'mid', 'typeReason', 'status', 'recvExp', 'created']);
+  const { columns, menu } = useVisibleColumns(`cases-${kind}`, allColumns, ['rma', 'dba', 'mid', 'typeReason', 'status', 'recvExp', 'created']);
 
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -121,17 +138,25 @@ export function Returns() {
 
   return (
     <AppShell
-      title="Returns & Swaps"
-      actions={can(Permission.RETURN_WRITE) && <button className="btn primary" onClick={() => setOpen(true)}>+ New return / swap</button>}
+      title={isSwaps ? 'Swaps' : 'Returns'}
+      actions={can(Permission.RETURN_WRITE) && <button className="btn primary" onClick={() => setOpen(true)}>+ New {noun}</button>}
     >
       <div className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
         <div style={{ flex: 1 }}>{ctl.toolbar}</div>
         {menu}
       </div>
 
+      <div className="tabs" style={{ flexWrap: 'wrap' }}>
+        {STATUS_TABS.map((t) => (
+          <div key={t.key} className={`tab ${statusTab === t.key ? 'active' : ''}`} onClick={() => setStatusTab(t.key)}>
+            {t.label} <span className="badge gray" style={{ marginLeft: 4 }}>{tabCount(t)}</span>
+          </div>
+        ))}
+      </div>
+
       <DataTable
         keyOf={(r) => r.id}
-        rows={ctl.rows}
+        rows={tabbedRows}
         loading={isLoading}
         onRowClick={(r) => navigate(`/returns/${r.id}`)}
         empty="No return cases match."

@@ -5,6 +5,16 @@ import { fromJson, toJson } from '../util/json.js';
 
 const SHIPPING_KEY = 'shipping_tiers';
 const POLICY_KEY = 'policies';
+const FORTIS_TERMINAL_KEY = 'fortis_terminal_defaults';
+
+export interface FortisTerminalConfig {
+  /** Fortis terminal_manufacturer_code (e.g. "2" = Ingenico, "100" = Virtual Device). */
+  manufacturerCode: string;
+  /** terminal_application_id */
+  applicationId: string;
+  /** terminal_cvm_id */
+  cvmId: string;
+}
 
 export interface PolicyConfig {
   returnWindowDays: number;
@@ -56,6 +66,33 @@ export const settingsService = {
       courtesyRequiresApproval: Boolean(cfg.courtesyRequiresApproval),
     };
     await prisma.setting.upsert({ where: { key: POLICY_KEY }, create: { key: POLICY_KEY, valueJson: toJson(clean) }, update: { valueJson: toJson(clean) } });
+    return clean;
+  },
+
+  async getFortisTerminal(): Promise<FortisTerminalConfig> {
+    // Default to the sandbox-verified Ingenico selection; env may seed initial values.
+    const def: FortisTerminalConfig = {
+      manufacturerCode: config.FORTIS_TERMINAL_MANUFACTURER_CODE || '2',
+      applicationId: config.FORTIS_TERMINAL_APPLICATION_ID || '11eb970e79fdf07890ca5613', // Ingenico Link2500
+      cvmId: config.FORTIS_TERMINAL_CVM_ID || '11e79d437fa5fa8400000005', // Telium Credit and Debit
+    };
+    const row = await prisma.setting.findUnique({ where: { key: FORTIS_TERMINAL_KEY } });
+    if (!row) return def;
+    const cfg = fromJson<Partial<FortisTerminalConfig>>(row.valueJson, {});
+    return {
+      manufacturerCode: cfg.manufacturerCode || def.manufacturerCode,
+      applicationId: cfg.applicationId || def.applicationId,
+      cvmId: cfg.cvmId || def.cvmId,
+    };
+  },
+
+  async setFortisTerminal(cfg: FortisTerminalConfig): Promise<FortisTerminalConfig> {
+    const clean: FortisTerminalConfig = {
+      manufacturerCode: String(cfg.manufacturerCode || '').trim(),
+      applicationId: String(cfg.applicationId || '').trim(),
+      cvmId: String(cfg.cvmId || '').trim(),
+    };
+    await prisma.setting.upsert({ where: { key: FORTIS_TERMINAL_KEY }, create: { key: FORTIS_TERMINAL_KEY, valueJson: toJson(clean) }, update: { valueJson: toJson(clean) } });
     return clean;
   },
 

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Permission } from '@de/shared';
+import { Permission, ReturnType } from '@de/shared';
 import { AppShell } from '../components/AppShell';
 import { Badge, Card, Loading, StatusBadge } from '../components/ui';
 import { ReturnTracker } from '../components/ReturnTracker';
@@ -31,7 +31,9 @@ export function ReturnDetail() {
     queryFn: () => api.deployed.list({ merchantId }),
     enabled: merchantId != null,
   });
-  // Resolve each returned unit back to the order that originally shipped it.
+  // Resolve each returned unit back to the INTERNAL order that shipped it (via deployed equipment).
+  // NB: never fall back to return.entityId — for POS-Portal-imported returns that is a POS Portal
+  // order number, not an internal id, and linking to it produced a dead /orders/<pospId> page.
   const serialToOrder = useMemo(() => {
     const m = new Map<string, number>();
     for (const d of devicesQ.data?.equipment ?? []) {
@@ -39,7 +41,7 @@ export function ReturnDetail() {
     }
     return m;
   }, [devicesQ.data]);
-  const orderFor = (serial?: string) => serialToOrder.get(serial ?? '') ?? serialToOrder.get(serialTag(serial)) ?? (data?.return.entityType === 'order' ? data.return.entityId : undefined);
+  const orderFor = (serial?: string) => serialToOrder.get(serial ?? '') ?? serialToOrder.get(serialTag(serial));
 
   const receive = useMutation({
     mutationFn: () => api.returns.receive(returnId, data!.return.expectedItemCount),
@@ -52,13 +54,14 @@ export function ReturnDetail() {
 
   if (isLoading || !data) return <AppShell title="Return"><Loading /></AppShell>;
   const r = data.return;
+  const isSwap = r.items.some((it) => it.returnType === ReturnType.REPLACEMENT);
 
   return (
     <AppShell
-      title={`Return #${r.id}`}
+      title={`${isSwap ? 'Swap' : 'Return'} #${r.id}`}
       actions={
         <div className="row">
-          <button className="btn" onClick={() => navigate('/returns')}>← Returns</button>
+          <button className="btn" onClick={() => navigate(isSwap ? '/swaps' : '/returns')}>← {isSwap ? 'Swaps' : 'Returns'}</button>
           {can(Permission.RETURN_WRITE) && (
             <button className="btn primary" onClick={() => receive.mutate()} disabled={receive.isPending}>Receive items</button>
           )}
@@ -99,18 +102,43 @@ export function ReturnDetail() {
         </Card>
 
         <Card>
-          <h3>Items ({r.items.length})</h3>
-          {r.items.map((it, i) => (
-            <div key={i} className="row between" style={{ padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-              <div>
-                <div>{titleCase(it.reasonCode)} <span className="muted small">{titleCase(it.returnType)}</span></div>
-                <div className="row" style={{ gap: 6, marginTop: 4, alignItems: 'center' }}>
-                  <SerialLink serial={it.expectedSerialNumber} orderId={orderFor(it.expectedSerialNumber)} />
-                  {it.receivedSerialNumber && <><span className="muted small">→</span><SerialLink serial={it.receivedSerialNumber} orderId={orderFor(it.receivedSerialNumber)} /></>}
+          <h3>{isSwap ? 'What’s being swapped' : 'Items'} ({r.items.length})</h3>
+          {r.items.map((it, i) => {
+            const returnedOrder = orderFor(it.expectedSerialNumber);
+            const isReplacementItem = it.returnType === ReturnType.REPLACEMENT;
+            return (
+              <div key={i} style={{ padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+                <div className="row" style={{ gap: 8, alignItems: 'center', marginBottom: 6 }}>
+                  <Badge tone={isReplacementItem ? 'blue' : 'gray'}>{titleCase(it.returnType)}</Badge>
+                  <span className="small muted">{titleCase(it.reasonCode)}</span>
+                </div>
+                <div className="swap-flow">
+                  {/* Device coming back */}
+                  <div className="swap-node">
+                    <div className="muted small">Returning</div>
+                    <div>{it.expectedProduct ?? it.receivedProduct ?? 'Device'}</div>
+                    {it.expectedSerialNumber
+                      ? <div style={{ marginTop: 2 }}>{returnedOrder ? <SerialLink serial={it.expectedSerialNumber} orderId={returnedOrder} /> : <span className="badge gray mono" title={it.expectedSerialNumber}>{serialTag(it.expectedSerialNumber)}</span>}</div>
+                      : <div className="small muted">serial pending</div>}
+                    {returnedOrder && <div className="small muted" style={{ marginTop: 2 }}>from order #{returnedOrder}</div>}
+                  </div>
+                  {isReplacementItem && (
+                    <>
+                      <div className="swap-arrow">→</div>
+                      {/* Replacement going out */}
+                      <div className="swap-node">
+                        <div className="muted small">Replacement</div>
+                        {r.replacementOrderId
+                          ? <div><Link className="rowlink mono" to={`/orders/${r.replacementOrderId}`}>New order #{r.replacementOrderId}</Link></div>
+                          : <div className="small muted">Being prepared</div>}
+                        {it.receivedSerialNumber && <div style={{ marginTop: 2 }}><SerialLink serial={it.receivedSerialNumber} orderId={orderFor(it.receivedSerialNumber)} /></div>}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           <div className="small muted" style={{ marginTop: 8 }}>Units are identified by the last 8 of their serial — click one to open the order it shipped on.</div>
         </Card>
       </div>

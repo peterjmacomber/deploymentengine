@@ -14,14 +14,16 @@ const GROUPS: { group: string; items: NavDef[] }[] = [
     items: [
       { to: '/merchants', label: 'Merchants', icon: '◱', perm: Permission.MERCHANT_READ },
       { to: '/orders', label: 'Orders', icon: '⬚', perm: Permission.ORDER_READ },
-      { to: '/returns', label: 'Returns & Swaps', icon: '↺', perm: Permission.RETURN_READ },
-      { to: '/inventory', label: 'Inventory & Forecast', icon: '▦', perm: Permission.INVENTORY_READ },
+      { to: '/returns', label: 'Returns', icon: '↩', perm: Permission.RETURN_READ },
+      { to: '/swaps', label: 'Swaps', icon: '↺', perm: Permission.RETURN_READ },
+      { to: '/inventory', label: 'Inventory', icon: '▦', perm: Permission.INVENTORY_READ },
     ],
   },
   {
     group: 'Management',
     items: [
       { to: '/approvals', label: 'Approvals', icon: '✔', perm: Permission.EXCEPTION_APPROVE, badge: 'approvals' },
+      { to: '/forecasting', label: 'Forecasting', icon: '▦', perm: Permission.EXCEPTION_APPROVE },
       { to: '/links', label: 'Checkout Generator', icon: '⊞', perm: Permission.LINK_WRITE },
       { to: '/users', label: 'Users', icon: '⚇', perm: Permission.USER_READ },
     ],
@@ -32,6 +34,7 @@ const GROUPS: { group: string; items: NavDef[] }[] = [
       { to: '/policies', label: 'Policies', icon: '⚖', perm: Permission.BUNDLE_WRITE },
       { to: '/bundles', label: 'Bundles & Pricing', icon: '❏', perm: Permission.BUNDLE_WRITE },
       { to: '/api-keys', label: 'API Keys', icon: '⚿', perm: Permission.APIKEY_MANAGE },
+      { to: '/fortis', label: 'Fortis Gateway', icon: '⇄', perm: Permission.DEV_TOOLS },
       { to: '/audit', label: 'Audit Log', icon: '☰', perm: Permission.AUDIT_READ },
     ],
   },

@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { type Order, OrderClassification, OrderStatus, Permission } from '@de/shared';
 import { AppShell } from '../components/AppShell';
 import { SectionNav } from '../components/SectionNav';
-import { StatusBadge } from '../components/ui';
+import { Badge, StatusBadge } from '../components/ui';
 import { type Column, DataTable } from '../components/DataTable';
 import { useTableControls } from '../components/TableControls';
 import { useVisibleColumns } from '../components/ColumnPicker';
@@ -79,7 +79,9 @@ export function Orders() {
             {o.serialNumbers.slice(0, 6).map((s) => <SerialLink key={s} serial={s} />)}
             {o.serialNumbers.length > 6 && <span className="small muted">+{o.serialNumbers.length - 6}</span>}
           </div>
-        : <span className="muted">—</span>),
+        : o.status === OrderStatus.CANCELLED
+          ? <span className="muted">—</span>
+          : <Badge tone="amber">Pending</Badge>),
     },
     { key: 'origin', label: 'Origin', header: 'Origin', sort: (o) => (o.originLinkName ? `link ${o.originLinkName}` : titleCase(o.method)), cell: (o) => (o.originLinkName ? <span className="small"><span className="badge teal">link</span> {o.originLinkName}</span> : <span className="small muted">{titleCase(o.method)}</span>) },
     { key: 'shipping', label: 'Shipping method', header: 'Shipping', sort: (o) => o.shippingMethodLabel ?? '', cell: (o) => <span className="small">{o.shippingMethodLabel ?? '—'}</span> },
@@ -100,13 +102,6 @@ export function Orders() {
       actions={can(Permission.ORDER_WRITE) && <button className="btn primary" onClick={() => navigate('/orders/new')}>+ New Order</button>}
     >
       <SectionNav tabs={[{ to: '/orders', label: 'Orders', end: true }, { to: '/deployed', label: 'Deployed Equipment' }]} />
-      <div className="tabs" style={{ flexWrap: 'wrap' }}>
-        {PHASES.map((p) => (
-          <div key={p.key} className={`tab ${phase === p.key ? 'active' : ''}`} onClick={() => setPhase(p.key)}>
-            {p.label} <span className="badge gray" style={{ marginLeft: 4 }}>{countOf(p)}</span>
-          </div>
-        ))}
-      </div>
 
       <div className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
         <div style={{ flex: 1 }}>{ctl.toolbar}</div>
@@ -119,6 +114,14 @@ export function Orders() {
           </span>
         </div>
       )}
+
+      <div className="tabs" style={{ flexWrap: 'wrap' }}>
+        {PHASES.map((p) => (
+          <div key={p.key} className={`tab ${phase === p.key ? 'active' : ''}`} onClick={() => setPhase(p.key)}>
+            {p.label} <span className="badge gray" style={{ marginLeft: 4 }}>{countOf(p)}</span>
+          </div>
+        ))}
+      </div>
 
       <DataTable
         keyOf={(o) => o.id}

@@ -17,6 +17,8 @@ export const Role = {
   MANAGER: 'manager',
   AGENT: 'agent',
   READONLY: 'readonly',
+  /** Merchant self-service login. Scoped to a single merchant; only sees the /portal surface. */
+  MERCHANT: 'merchant',
   /** External principal authenticated by API key (embed/partner plane). Not a login user. */
   PARTNER: 'partner',
   /** Internal integration key authenticated by X-API-Key on the main API. Not a login user. */
@@ -44,7 +46,8 @@ export const Permission = {
   BUNDLE_READ: 'bundle:read',
   BUNDLE_WRITE: 'bundle:write', // admin: add/remove/edit bundles
   LINK_READ: 'link:read',
-  LINK_WRITE: 'link:write', // create/manage deployment links (order + application landing pages)
+  LINK_WRITE: 'link:write', // create/manage/disable deployment links (managers+)
+  LINK_DELETE: 'link:delete', // permanently delete a link — admin only
   EXCEPTION_READ: 'exception:read',
   EXCEPTION_REQUEST: 'exception:request', // any agent may request
   EXCEPTION_APPROVE: 'exception:approve', // manager only
@@ -53,6 +56,11 @@ export const Permission = {
   AUDIT_READ: 'audit:read',
   APIKEY_MANAGE: 'apikey:manage', // admin only — create/revoke integration API keys
   DEV_TOOLS: 'dev:tools', // mock-ship etc.
+  /** Merchant self-service portal. Held ONLY by the MERCHANT role; every portal endpoint is
+   *  additionally scoped to the principal's own merchantId, so it grants no cross-merchant reach. */
+  PORTAL_USE: 'portal:use',
+  /** Impersonate a merchant (view the portal as them). Managers + admins. */
+  MERCHANT_IMPERSONATE: 'merchant:impersonate',
 } as const;
 export type Permission = (typeof Permission)[keyof typeof Permission];
 

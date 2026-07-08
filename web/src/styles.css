@@ -201,3 +201,48 @@ table.fc-grid td:last-child { border-right: none; }
 table.fc-grid tr.fc-editrow td { background: #fbfefe; }
 .fc-input { width: 54px; padding: 5px 4px; border: 1px solid var(--border); border-radius: 6px; text-align: center; font-variant-numeric: tabular-nums; font-size: 13px; background: #fff; }
 .fc-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+
+/* ---- Merchant self-service portal ---- */
+.portal { min-height: 100%; background: var(--bg); }
+.portal-imp-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--warn-soft); color: #7c4a03; padding: 8px 20px; font-size: 13px; border-bottom: 1px solid #f0d089; }
+.portal-header { display: flex; align-items: center; gap: 20px; padding: 12px 24px; background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
+.portal-brand { display: flex; align-items: center; gap: 10px; }
+.portal-logo { width: 34px; height: 34px; border-radius: 9px; background: var(--accent); color: #fff; display: grid; place-items: center; font-size: 18px; }
+.portal-title { font-weight: 680; font-size: 15px; letter-spacing: -0.01em; }
+.portal-nav { display: flex; gap: 4px; margin-left: auto; }
+.portal-navlink { padding: 7px 14px; border-radius: 8px; color: var(--muted); font-weight: 550; font-size: 14px; }
+.portal-navlink:hover { background: var(--bg); text-decoration: none; }
+.portal-navlink.active { background: var(--accent-soft); color: var(--accent-dark); }
+.portal-main { max-width: 1000px; margin: 0 auto; padding: 28px 24px 48px; }
+.portal-h1 { font-size: 24px; margin-bottom: 18px; }
+.portal-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.portal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.portal-cta { display: flex; align-items: center; justify-content: space-between; gap: 16px; background: linear-gradient(100deg, var(--accent-soft), #fff); border: 1px solid var(--accent-soft); }
+.portal-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.portal-choice { display: flex; flex-direction: column; gap: 3px; text-align: left; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); cursor: pointer; transition: border-color .12s, box-shadow .12s; }
+.portal-choice:hover { border-color: var(--accent); }
+.portal-choice.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.portal-steps { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+.portal-step { display: flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 20px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); }
+.portal-step.active { border-color: var(--accent); color: var(--accent-dark); }
+.portal-step.done { background: var(--ok-soft); border-color: var(--ok-soft); color: #166534; }
+.portal-step-num { width: 20px; height: 20px; border-radius: 50%; background: var(--bg); display: grid; place-items: center; font-size: 12px; font-weight: 650; }
+.portal-step.active .portal-step-num { background: var(--accent); color: #fff; }
+.portal-help { margin: 8px 0 0; padding-left: 20px; line-height: 1.9; }
+.portal-back { background: none; border: none; color: var(--muted); cursor: pointer; padding: 0; }
+.portal-done { text-align: center; padding: 32px; }
+.portal-done-icon { font-size: 46px; margin-bottom: 8px; }
+.portal-bars { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.portal-bar-row { display: grid; grid-template-columns: 84px 1fr 34px; align-items: center; gap: 10px; }
+.portal-bar-label { color: var(--muted); }
+.portal-bar-track { background: var(--bg); border-radius: 6px; height: 14px; overflow: hidden; }
+.portal-bar-fill { display: block; height: 100%; background: var(--accent); border-radius: 6px; }
+@media (max-width: 760px) {
+  .portal-kpis, .portal-grid, .portal-choices { grid-template-columns: 1fr; }
+  .portal-nav { order: 3; width: 100%; overflow-x: auto; }
+}
+
+/* ---- Swap/return items flow ---- */
+.swap-flow { display: flex; align-items: stretch; gap: 12px; }
+.swap-node { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+.swap-arrow { display: grid; place-items: center; color: var(--muted); font-size: 20px; }

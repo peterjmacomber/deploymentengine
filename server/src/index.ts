@@ -16,7 +16,7 @@ async function main() {
   const app = buildApp();
   const server = app.listen(config.PORT, () => {
     logger.info(
-      { port: config.PORT, pospMode: config.POSP_MODE, fortisMode: config.FORTIS_MODE, env: config.NODE_ENV },
+      { port: config.PORT, pospMode: config.POSP_MODE, fortisConfigured: config.fortisConfigured, env: config.NODE_ENV },
       `Deployment Engine API listening on http://localhost:${config.PORT}`,
     );
   });

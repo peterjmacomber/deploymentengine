@@ -26,6 +26,8 @@ import { usersRouter } from './routes/users.js';
 import { apiKeysRouter } from './routes/apiKeys.js';
 import { auditRouter } from './routes/audit.js';
 import { devRouter } from './routes/dev.js';
+import { fortisRouter } from './routes/fortis.js';
+import { portalRouter } from './routes/portal.js';
 import { publicRouter } from './routes/public.js';
 import { webhookRouter } from './routes/webhooks.js';
 
@@ -46,7 +48,7 @@ export function buildApp(): Express {
   );
 
   app.get('/health', (_req, res) =>
-    res.json({ ok: true, service: 'deployment-engine', pospMode: config.POSP_MODE, fortisMode: config.FORTIS_MODE }),
+    res.json({ ok: true, service: 'deployment-engine', pospMode: config.POSP_MODE, fortisConfigured: config.fortisConfigured }),
   );
 
   // ---- Internal API (JWT + RBAC + audit) ----
@@ -67,6 +69,8 @@ export function buildApp(): Express {
   v1.use('/users', usersRouter);
   v1.use('/api-keys', apiKeysRouter);
   v1.use('/audit', auditRouter);
+  v1.use('/fortis', fortisRouter);
+  v1.use('/portal', portalRouter); // merchant self-service (PORTAL_USE + own-merchant scope)
   v1.use('/dev', devRouter);
   app.use('/api/v1', globalLimiter, v1);
 

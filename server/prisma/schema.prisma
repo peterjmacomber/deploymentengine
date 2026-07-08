@@ -17,12 +17,17 @@ model User {
   id           Int       @id @default(autoincrement())
   email        String    @unique
   name         String
-  role         String // Role enum (admin|manager|agent|readonly)
+  role         String // Role enum (admin|manager|agent|readonly|merchant)
   passwordHash String
   active       Boolean   @default(true)
+  merchantId   Int? // set only for MERCHANT-role self-service logins
   lastLoginAt  DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+
+  merchant Merchant? @relation(fields: [merchantId], references: [id])
+
+  @@index([merchantId])
 }
 
 model Merchant {
@@ -38,12 +43,15 @@ model Merchant {
   taxExempt           Boolean?
   supplyClub          Boolean?
   lastUpdatedAt       DateTime? // POS Portal lastUpdatedDate
+  fortisLocationId    String? // linked Fortis Gateway account/location id
+  fortisLocationName  String?
   shippingAddressJson String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
   orders   Order[]
   deployed DeployedEquipment[]
+  users    User[]
 
   @@index([mid])
 }

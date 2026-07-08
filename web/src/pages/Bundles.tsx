@@ -182,8 +182,8 @@ export function Bundles() {
       <div className="row" style={{ gap: 10, marginBottom: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <div className="field" style={{ margin: 0, minWidth: 200 }}><label className="small muted">Search</label><input placeholder="Name, id, model…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
         <div className="field" style={{ margin: 0, minWidth: 150 }}>
-          <label className="small muted">Brand</label>
-          <select value={fBrand} onChange={(e) => setFBrand(e.target.value)}><option value="">All brands ({brandOptions.length})</option>{brandOptions.map((v) => <option key={v} value={v}>{v}</option>)}</select>
+          <label className="small muted">Manufacturer</label>
+          <select value={fBrand} onChange={(e) => setFBrand(e.target.value)}><option value="">All manufacturers ({brandOptions.length})</option>{brandOptions.map((v) => <option key={v} value={v}>{v}</option>)}</select>
         </div>
         <div className="field" style={{ margin: 0, minWidth: 200 }}>
           <label className="small muted">Application</label>
@@ -208,7 +208,7 @@ export function Bundles() {
         renderExpanded={(b) => (
           <div style={{ padding: '4px 8px' }}>
             <div className="row" style={{ gap: 24, flexWrap: 'wrap', marginBottom: 10 }}>
-              <div><div className="small muted">Brand</div><div>{b.brand ?? '—'}</div></div>
+              <div><div className="small muted">Manufacturer</div><div>{b.brand ?? '—'}</div></div>
               <div><div className="small muted">Application</div><div>{b.pospApplication ?? '—'}</div></div>
               <div><div className="small muted">Encryption</div><div>{b.pospEncryption ?? '—'}</div></div>
               <div><div className="small muted">OS build</div><div className="mono">{b.pospOsBuild ?? '—'}</div></div>
@@ -236,7 +236,7 @@ export function Bundles() {
             cell: (b) => <input type="checkbox" checked={selected.has(b.pospBundleId)} onClick={(e) => e.stopPropagation()} onChange={() => toggleSel(b.pospBundleId)} />,
           },
           { header: 'Bundle', sort: (b) => b.displayName.toLowerCase(), cell: (b) => <div><div>{b.displayName}</div><div className="small muted mono">#{b.pospBundleId}</div></div> },
-          { header: 'Brand', sort: (b) => b.brand ?? '', cell: (b) => <span className="small">{b.brand ?? '—'}</span> },
+          { header: 'Manufacturer', sort: (b) => b.brand ?? '', cell: (b) => <span className="small">{b.brand ?? '—'}</span> },
           {
             header: 'Active',
             sort: (b) => (b.active ? 0 : 1),
@@ -313,7 +313,7 @@ export function Bundles() {
           </div>
           <div className="row" style={{ gap: 10 }}>
             <div className="field" style={{ flex: 1 }}>
-              <label>Brand (device manufacturer)</label>
+              <label>Manufacturer</label>
               <input list="brand-options" value={form.brand} onChange={(e) => set('brand', e.target.value)} placeholder="Auto-detected if blank" />
               <datalist id="brand-options">{ALL_BRANDS.map((b) => <option key={b} value={b} />)}</datalist>
               <div className="hint">Leave blank to auto-detect from the model/name.</div>

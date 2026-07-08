@@ -49,7 +49,7 @@ linksRouter.patch(
 
 linksRouter.delete(
   '/:id',
-  requirePermission(Permission.LINK_WRITE),
+  requirePermission(Permission.LINK_DELETE),
   asyncHandler(async (req, res) => {
     const id = idParam(req);
     await linkService.remove(id);

@@ -38,6 +38,8 @@ export function toMerchant(row: MerchantRow): Merchant {
     taxExempt: row.taxExempt ?? undefined,
     supplyClub: row.supplyClub ?? undefined,
     lastUpdatedAt: iso(row.lastUpdatedAt),
+    fortisLocationId: row.fortisLocationId ?? undefined,
+    fortisLocationName: row.fortisLocationName ?? undefined,
     shippingAddress: fromJson<Address | undefined>(row.shippingAddressJson, undefined),
     createdAt: iso(row.createdAt),
   };

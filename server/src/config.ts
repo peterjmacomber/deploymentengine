@@ -57,14 +57,22 @@ const envSchema = z
     AVALARA_LICENSE_KEY: z.string().optional(),
     AVALARA_COMPANY_CODE: z.string().optional(),
 
-    FORTIS_MODE: z.enum(['mock', 'live']).default('mock'),
     FORTIS_BASE_URL: z.string().url().optional(),
+    FORTIS_MERCHANT_LOGIN_URL: z.string().url().optional(),
     FORTIS_DEVELOPER_ID: z.string().optional(),
     FORTIS_USER_ID: z.string().optional(),
+    FORTIS_USER_NAME: z.string().optional(),
     FORTIS_USER_API_KEY: z.string().optional(),
+    FORTIS_USER_HASH_KEY: z.string().optional(),
+    FORTIS_TICKET_HASH_KEY: z.string().optional(),
     FORTIS_LOCATION_ID: z.string().optional(),
+    FORTIS_TERMINAL_ID: z.string().optional(),
     FORTIS_TERMINAL_APPLICATION_ID: z.string().optional(),
+    FORTIS_TERMINAL_CVM_ID: z.string().optional(),
     FORTIS_TERMINAL_MANUFACTURER_ID: z.string().optional(),
+    // Fortis terminal_manufacturer_code (string): 2=Ingenico, 1=PAX, 4=IDtech, 100=Virtual Device.
+    // Admin-configurable per install via the Fortis Gateway page; this is only the seed default.
+    FORTIS_TERMINAL_MANUFACTURER_CODE: z.string().default('2'),
     FORTIS_LINK_FIELD: z.string().default('terminal_api_id'),
 
     // Inbound webhooks are OFF by default: this app is intentionally polling-only (no public
@@ -100,11 +108,8 @@ const envSchema = z
         if (!v[k]) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [k], message: `${k} required when POSP_MODE=live` });
       }
     }
-    if (v.FORTIS_MODE === 'live') {
-      for (const k of ['FORTIS_BASE_URL', 'FORTIS_DEVELOPER_ID', 'FORTIS_LOCATION_ID'] as const) {
-        if (!v[k]) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [k], message: `${k} required when FORTIS_MODE=live` });
-      }
-    }
+    // Fortis is always the live client (no mock). Missing creds don't block boot — the
+    // Fortis features surface a clear "not configured" error until the .env is filled.
     if (v.WEBHOOKS_ENABLED && v.WEBHOOK_AUTH_SCHEME === 'apikey' && !v.WEBHOOK_API_KEY) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['WEBHOOK_API_KEY'], message: 'required for apikey scheme when WEBHOOKS_ENABLED' });
     }
@@ -139,6 +144,8 @@ export const config = {
   corsOrigins: raw.CORS_ORIGIN.split(',').map((s) => s.trim()).filter(Boolean),
   publicApiKeys: parsePublicKeys(raw.PUBLIC_API_KEYS),
   publicAllowedReturnHosts: raw.PUBLIC_ALLOWED_RETURN_HOSTS.split(',').map((s) => s.trim()).filter(Boolean),
+  // Fortis is usable once the base URL + core credentials are present.
+  fortisConfigured: Boolean(raw.FORTIS_BASE_URL && raw.FORTIS_DEVELOPER_ID && raw.FORTIS_USER_ID && raw.FORTIS_USER_API_KEY),
 };
 
 export type AppConfig = typeof config;

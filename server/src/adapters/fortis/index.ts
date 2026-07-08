@@ -2,57 +2,70 @@ import axios from 'axios';
 import { config } from '../../config.js';
 import { logger } from '../../logger.js';
 import { fortisLinksValue } from '../../util/ids.js';
+import { settingsService } from '../../services/settingsService.js';
+
+/**
+ * Real Fortis Gateway (Zeamster) client — verified against the sandbox:
+ *   base    : FORTIS_BASE_URL (e.g. https://api.sandbox.fortis.tech)
+ *   auth    : headers developer-id / user-id / user-api-key
+ *   accounts: GET /v1/locations   (merchant = "location"; keyed by name + account_number, NOT MID)
+ *   devices : POST /v1/terminals  (serial_number = full serial, terminal_api_id = last-8 "LINKS")
+ * There is intentionally NO mock — behavior always reflects the live API.
+ */
 
 export interface FortisContext {
   serialNumber: string;
-  merchantMid?: string;
-  merchantName?: string;
-  merchantEmail?: string;
+  locationId?: string; // the linked Fortis account/location; falls back to FORTIS_LOCATION_ID
+  title?: string;
 }
 
 export interface FortisSyncResult {
   serialNumber: string;
-  linksValue: string; // last 8 alphanumerics of the serial
-  accountId?: string; // the matched Fortis Gateway account/location
-  terminalId?: string; // the device record created in Fortis
+  linksValue: string; // last-8 of the serial → terminal_api_id
+  accountId?: string; // Fortis location the terminal was created under
+  terminalId?: string;
   activated: boolean;
-  status: 'created' | 'failed' | 'skipped';
+  status: 'created' | 'failed';
   error?: string;
 }
 
+export interface FortisConnectionResult {
+  ok: boolean;
+  detail: string;
+  status?: number;
+}
+
+export interface FortisLocation {
+  id: string;
+  name: string;
+  accountNumber: string | null;
+  locationType?: string;
+}
+
+/** A selectable option for the terminal manufacturer / application / CVM dropdowns. */
+export interface FortisTerminalOption {
+  id: string; // manufacturers use their numeric `code`; applications/CVMs use `id`
+  label: string;
+  manufacturerCode?: string; // present on CVMs — lets the UI cascade by manufacturer
+}
+
+export interface FortisTerminalOptions {
+  manufacturers: FortisTerminalOption[];
+  applications: FortisTerminalOption[];
+  cvms: FortisTerminalOption[];
+}
+
 export interface FortisAdapter {
-  readonly mode: 'mock' | 'live';
-  /**
-   * Provision + activate a device in Fortis Gateway for a shipped serial:
-   *  1. find the merchant's Fortis Gateway account (by MID, then email/name),
-   *  2. insert the last-8 of the serial into the device section (the LINKS field),
-   *  which instantly activates the terminal for use.
-   */
+  testConnection(): Promise<FortisConnectionResult>;
+  /** Search Fortis accounts (locations) by name / account number — the shared key for linking. */
+  searchLocations(query: string, limit?: number): Promise<FortisLocation[]>;
+  /** Reference lists (manufacturer/application/CVM) for the terminal-defaults dropdowns. */
+  listTerminalOptions(): Promise<FortisTerminalOptions>;
+  /** Create a terminal (equipment) record: full serial → serial_number, last-8 → terminal_api_id. */
   activateDevice(ctx: FortisContext): Promise<FortisSyncResult>;
 }
 
-/** Deterministic pseudo account id from a merchant identifier (mock only). */
-function mockAccountId(key: string): string {
-  let h = 0;
-  for (const c of key) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  return `FG-${(h % 900000) + 100000}`;
-}
-
-class MockFortisAdapter implements FortisAdapter {
-  readonly mode = 'mock' as const;
-  private seq = 800000;
-  async activateDevice(ctx: FortisContext): Promise<FortisSyncResult> {
-    const linksValue = fortisLinksValue(ctx.serialNumber);
-    const key = ctx.merchantMid || ctx.merchantEmail || ctx.merchantName || 'unknown';
-    const accountId = mockAccountId(key);
-    logger.info({ serial: ctx.serialNumber, linksValue, accountId }, 'Fortis (mock) matched account + activated device');
-    return { serialNumber: ctx.serialNumber, linksValue, accountId, terminalId: `FT-${this.seq++}`, activated: true, status: 'created' };
-  }
-}
-
 class LiveFortisAdapter implements FortisAdapter {
-  readonly mode = 'live' as const;
-
   private headers(): Record<string, string> {
     const h: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' };
     if (config.FORTIS_DEVELOPER_ID) h['developer-id'] = config.FORTIS_DEVELOPER_ID;
@@ -61,45 +74,102 @@ class LiveFortisAdapter implements FortisAdapter {
     return h;
   }
 
-  /** Locate the merchant's Fortis Gateway account/location by MID, then email. */
-  private async findAccount(ctx: FortisContext): Promise<string | null> {
-    const base = config.FORTIS_BASE_URL!;
-    const tries: Array<Record<string, string>> = [];
-    if (ctx.merchantMid) tries.push({ 'filter[mid]': ctx.merchantMid });
-    if (ctx.merchantEmail) tries.push({ 'filter[email]': ctx.merchantEmail });
-    for (const params of tries) {
-      try {
-        const res = await axios.get(`${base}/v1/locations`, { headers: this.headers(), params, timeout: 20_000 });
-        const loc = res.data?.list?.[0] ?? res.data?.data?.[0];
-        if (loc?.id) return String(loc.id);
-      } catch (err) {
-        logger.warn({ err: (err as Error).message }, 'Fortis account lookup failed');
-      }
+  async testConnection(): Promise<FortisConnectionResult> {
+    const base = config.FORTIS_BASE_URL;
+    if (!base) return { ok: false, detail: 'FORTIS_BASE_URL is not set.' };
+    if (!config.FORTIS_USER_ID || !config.FORTIS_USER_API_KEY) return { ok: false, detail: 'FORTIS_USER_ID / FORTIS_USER_API_KEY are not set.' };
+    try {
+      const res = await axios.get(`${base}/v1/locations`, { headers: this.headers(), params: { 'page[size]': 1 }, timeout: 20_000, validateStatus: () => true });
+      if (res.status >= 200 && res.status < 300) return { ok: true, detail: `Connected to Fortis Gateway (${base}).`, status: res.status };
+      if (res.status === 401 || res.status === 403) return { ok: false, detail: `Authentication rejected (HTTP ${res.status}) — check developer-id / user-id / user-api-key.`, status: res.status };
+      if (res.status === 404) return { ok: false, detail: `Not found (HTTP 404) at ${base}/v1/locations — FORTIS_BASE_URL may be wrong.`, status: res.status };
+      return { ok: false, detail: `Fortis Gateway returned HTTP ${res.status}.`, status: res.status };
+    } catch (err) {
+      return { ok: false, detail: `Could not reach Fortis Gateway: ${(err as Error).message}` };
     }
-    return config.FORTIS_LOCATION_ID ?? null; // fall back to a configured default location
+  }
+
+  async searchLocations(query: string, limit = 25): Promise<FortisLocation[]> {
+    const base = config.FORTIS_BASE_URL;
+    if (!base || !config.FORTIS_USER_ID) return [];
+    try {
+      // Fortis's query-param filters are unreliable, so we filter client-side over a page.
+      const res = await axios.get(`${base}/v1/locations`, { headers: this.headers(), params: { 'page[number]': 1, 'page[size]': 500 }, timeout: 30_000, validateStatus: () => true });
+      const list: any[] = res.data?.list ?? res.data?.data ?? [];
+      const q = query.trim().toLowerCase();
+      return list
+        .filter((l) => !q || `${l.name ?? ''} ${l.account_number ?? ''}`.toLowerCase().includes(q))
+        .slice(0, limit)
+        .map((l) => ({ id: String(l.id), name: l.name ?? '', accountNumber: l.account_number ?? null, locationType: l.location_type ?? undefined }));
+    } catch (err) {
+      logger.warn({ err: (err as Error).message, query }, 'Fortis location search failed');
+      return [];
+    }
+  }
+
+  async listTerminalOptions(): Promise<FortisTerminalOptions> {
+    const base = config.FORTIS_BASE_URL;
+    const empty: FortisTerminalOptions = { manufacturers: [], applications: [], cvms: [] };
+    if (!base || !config.FORTIS_USER_ID) return empty;
+    const fetchList = async (path: string): Promise<any[]> => {
+      const res = await axios.get(`${base}${path}`, { headers: this.headers(), params: { 'page[size]': 200 }, timeout: 30_000, validateStatus: () => true });
+      if (res.status < 200 || res.status >= 300) return [];
+      return res.data?.list ?? res.data?.data ?? [];
+    };
+    try {
+      const [mans, apps, cvms] = await Promise.all([
+        fetchList('/v1/terminal-manufacturers'),
+        fetchList('/v1/terminal-applications'),
+        fetchList('/v1/terminal-cvms'),
+      ]);
+      return {
+        manufacturers: mans
+          .map((m) => ({ id: String(m.code), label: m.title ?? `Code ${m.code}` }))
+          .sort((a, b) => a.label.localeCompare(b.label)),
+        applications: apps
+          .map((a) => ({ id: String(a.id), label: a.title ? String(a.title) : `(untitled ${String(a.id).slice(-6)})` }))
+          .sort((a, b) => a.label.localeCompare(b.label)),
+        cvms: cvms
+          .map((c) => ({ id: String(c.id), label: c.title ? String(c.title) : `(untitled ${String(c.id).slice(-6)})`, manufacturerCode: c.terminal_manufacturer_code != null ? String(c.terminal_manufacturer_code) : undefined }))
+          .sort((a, b) => a.label.localeCompare(b.label)),
+      };
+    } catch (err) {
+      logger.warn({ err: (err as Error).message }, 'Fortis terminal options fetch failed');
+      return empty;
+    }
   }
 
   async activateDevice(ctx: FortisContext): Promise<FortisSyncResult> {
     const linksValue = fortisLinksValue(ctx.serialNumber);
+    const locationId = ctx.locationId || config.FORTIS_LOCATION_ID;
+    if (!locationId) {
+      return { serialNumber: ctx.serialNumber, linksValue, activated: false, status: 'failed', error: 'No Fortis location — link the merchant to a Fortis account first (or set FORTIS_LOCATION_ID).' };
+    }
+    // Terminal manufacturer / application / CVM come from the admin-configured defaults
+    // (persisted + audited), falling back to env then the sandbox-verified Ingenico values.
+    const td = await settingsService.getFortisTerminal();
+    const body: Record<string, unknown> = {
+      location_id: locationId,
+      title: ctx.title || `Terminal ${linksValue}`,
+      serial_number: ctx.serialNumber,
+      [config.FORTIS_LINK_FIELD]: linksValue, // terminal_api_id = last-8
+      terminal_application_id: td.applicationId,
+      terminal_cvm_id: td.cvmId,
+      terminal_manufacturer_code: td.manufacturerCode,
+      debit: false, emv: false, cashback_enable: false, print_enable: false, sig_capture_enable: false,
+    };
     try {
-      const accountId = await this.findAccount(ctx);
-      if (!accountId) return { serialNumber: ctx.serialNumber, linksValue, activated: false, status: 'failed', error: 'No matching Fortis Gateway account' };
-      const res = await axios.post(
-        `${config.FORTIS_BASE_URL}/v1/terminals`,
-        {
-          location_id: accountId,
-          terminal_application_id: config.FORTIS_TERMINAL_APPLICATION_ID,
-          terminal_manufacturer_id: config.FORTIS_TERMINAL_MANUFACTURER_ID,
-          title: `Terminal ${linksValue}`,
-          [config.FORTIS_LINK_FIELD]: linksValue, // last-8 -> activates the device
-        },
-        { headers: this.headers(), timeout: 20_000 },
-      );
-      const terminalId = res.data?.data?.id ?? res.data?.id;
-      return { serialNumber: ctx.serialNumber, linksValue, accountId, terminalId, activated: true, status: 'created' };
+      const res = await axios.post(`${config.FORTIS_BASE_URL}/v1/terminals`, body, { headers: this.headers(), timeout: 25_000, validateStatus: () => true });
+      if (res.status >= 200 && res.status < 300) {
+        const t = res.data?.data ?? res.data?.list?.[0] ?? res.data;
+        return { serialNumber: ctx.serialNumber, linksValue, accountId: locationId, terminalId: t?.id ? String(t.id) : undefined, activated: true, status: 'created' };
+      }
+      const detail = res.data?.detail ?? res.data?.title ?? `HTTP ${res.status}`;
+      logger.error({ status: res.status, detail, serial: ctx.serialNumber }, 'Fortis terminal create failed');
+      return { serialNumber: ctx.serialNumber, linksValue, accountId: locationId, activated: false, status: 'failed', error: String(detail) };
     } catch (err) {
-      logger.error({ err: (err as Error).message, serial: ctx.serialNumber }, 'Fortis device activation failed');
-      return { serialNumber: ctx.serialNumber, linksValue, activated: false, status: 'failed', error: (err as Error).message };
+      logger.error({ err: (err as Error).message, serial: ctx.serialNumber }, 'Fortis terminal create errored');
+      return { serialNumber: ctx.serialNumber, linksValue, accountId: locationId, activated: false, status: 'failed', error: (err as Error).message };
     }
   }
 }
@@ -107,8 +177,8 @@ class LiveFortisAdapter implements FortisAdapter {
 let instance: FortisAdapter | null = null;
 export function fortis(): FortisAdapter {
   if (!instance) {
-    instance = config.FORTIS_MODE === 'live' ? new LiveFortisAdapter() : new MockFortisAdapter();
-    logger.info({ mode: instance.mode }, 'Fortis adapter initialized');
+    instance = new LiveFortisAdapter();
+    logger.info({ configured: config.fortisConfigured, baseUrl: config.FORTIS_BASE_URL }, 'Fortis adapter initialized (live)');
   }
   return instance;
 }
