@@ -1,10 +1,7 @@
 # Deployment Engine — working notes for coding agents
 
-## UI refactor branch rule
-All UI-refactor work (Fortis Design System restyle per `DESIGN_SPEC.md`) stays on branch
-**`peter-ui-refactor`** until Peter approves a merge. Never commit UI-refactor work to `main`,
-never merge, never push to `main`. Commit after every phase with a message prefixed
-`ui-refactor(phase-N):`.
-
-(The design handoff spec references a `peter.ui.refactor` branch name; the actual branch in this
-repo is `peter-ui-refactor` — use the existing one.)
+## UI
+The app is styled on the **Fortis Design System** (`web/src/styles.css` tokens; Bio Sans display
+font self-hosted in `web/src/assets/fonts/`, Inter for body). The `peter-ui-refactor` branch that
+introduced it was merged to `main` on 2026-07-09 with Peter's approval, so new UI work happens on
+`main` (or normal feature branches) — the old "stay on the refactor branch" rule no longer applies.
