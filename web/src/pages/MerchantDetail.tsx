@@ -170,10 +170,10 @@ export function MerchantDetail() {
   return (
     <AppShell
       title={title}
+      crumb={{ parent: 'Merchants', to: '/merchants' }}
       actions={
         <div className="row" style={{ gap: 8 }}>
-          {canImpersonate && <button className="btn" onClick={enterAsMerchant}>👁 View as merchant</button>}
-          <Link className="btn" to="/merchants">← All merchants</Link>
+          {canImpersonate && <button className="btn" onClick={enterAsMerchant}>View as merchant</button>}
         </div>
       }
     >

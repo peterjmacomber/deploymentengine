@@ -22,7 +22,7 @@ export function Dashboard() {
         <Loading />
       ) : (
         <>
-          <div className="grid cols-4" style={{ marginBottom: 16 }}>
+          <div className="grid" style={{ marginBottom: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(148px, 1fr))' }}>
             <Kpi label="Orders" value={data.kpis.orders} onClick={() => navigate('/orders')} />
             <Kpi label="Active Deployed" value={data.kpis.deployedActive} onClick={() => navigate('/deployed?status=Active')} />
             <Kpi label="Open Returns" value={data.kpis.openReturns} onClick={() => navigate('/cases')} />

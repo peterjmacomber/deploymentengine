@@ -59,6 +59,7 @@ export function ReturnDetail() {
   return (
     <AppShell
       title={`${isSwap ? 'Swap' : 'Return'} #${r.id}`}
+      crumb={{ parent: 'Returns & Swaps', to: isSwap ? '/cases?type=swap' : '/cases?type=return' }}
       actions={
         <div className="row">
           <button className="btn" onClick={() => navigate(isSwap ? '/cases?type=swap' : '/cases?type=return')}>← Returns &amp; Swaps</button>

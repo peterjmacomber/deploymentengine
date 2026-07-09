@@ -58,6 +58,7 @@ export function OrderDetail() {
   return (
     <AppShell
       title={`Order ${o.reference ?? o.id}`}
+      crumb={{ parent: 'Orders', to: '/orders' }}
       actions={
         <div className="row">
           <button className="btn" onClick={() => navigate('/orders')}>← Orders</button>
