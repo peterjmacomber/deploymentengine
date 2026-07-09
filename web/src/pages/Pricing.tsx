@@ -1,13 +1,10 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { type DevicePriceRow, Permission, RESTOCKING_FEE_PCT } from '@de/shared';
-import { AppShell } from '../components/AppShell';
-import { SectionNav } from '../components/SectionNav';
+import { type DevicePriceRow, RESTOCKING_FEE_PCT } from '@de/shared';
 import { Badge, Card, Loading } from '../components/ui';
 import { DataTable } from '../components/DataTable';
 import { useTableControls } from '../components/TableControls';
 import { api, ApiError, type ShippingConfig } from '../api/client';
-import { useAuth } from '../stores/authStore';
 import { useToast } from '../components/Toast';
 import { money } from '../lib/format';
 
@@ -84,8 +81,8 @@ function DevicePriceCell({ row, canEdit }: { row: DevicePriceRow; canEdit: boole
   );
 }
 
-export function Pricing() {
-  const canEdit = useAuth((s) => s.can)(Permission.BUNDLE_WRITE);
+/** Device Pricing tab content (rendered inside Bundles & Pricing). */
+export function PricingPanel({ canEdit }: { canEdit: boolean }) {
   const qc = useQueryClient();
   const toast = useToast();
 
@@ -106,11 +103,11 @@ export function Pricing() {
   });
 
   return (
-    <AppShell
-      title="Bundles & Pricing"
-      actions={canEdit && <button className="btn" disabled={resync.isPending} onClick={() => resync.mutate()}>{resync.isPending ? 'Syncing…' : 'Re-sync bundle prices'}</button>}
-    >
-      <SectionNav tabs={[{ to: '/bundles', label: 'Bundles', end: true }, { to: '/pricing', label: 'Pricing' }]} />
+    <div>
+      <div className="row between" style={{ marginBottom: 16 }}>
+        <div />
+        {canEdit && <button className="btn" disabled={resync.isPending} onClick={() => resync.mutate()}>{resync.isPending ? 'Syncing…' : 'Re-sync bundle prices'}</button>}
+      </div>
 
       <div className="grid cols-3" style={{ marginBottom: 16 }}>
         <Card><div className="muted small">Priced devices</div><div style={{ fontSize: 24, fontWeight: 700 }}>{upl.data?.devicePrices.length ?? 0}</div></Card>
@@ -141,6 +138,6 @@ export function Pricing() {
       </Card>
 
       <ShippingRatesCard canEdit={canEdit} />
-    </AppShell>
+    </div>
   );
 }

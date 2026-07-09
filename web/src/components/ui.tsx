@@ -50,8 +50,8 @@ const STATUS_TONE: Record<string, Tone> = {
   // exceptions
   PENDING: 'amber', APPROVED: 'green', DENIED: 'red',
   // returns lifecycle
-  INITIATED: 'blue', PENDING_APPROVAL: 'amber', CALLTAG_ISSUED: 'blue', REPLACEMENT_SHIPPED: 'teal',
-  ITEMS_RECEIVED: 'teal', CLOSED: 'green',
+  INITIATED: 'blue', PENDING_APPROVAL: 'amber', CALLTAG_ISSUED: 'blue', REPLACEMENT_SHIPPED: 'blue',
+  ITEMS_RECEIVED: 'green', CLOSED: 'gray',
   // deployed
   ACTIVE: 'green', IN_REPAIR: 'amber', RETURN_PENDING: 'amber',
   DECOMMISSIONED: 'gray',

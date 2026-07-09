@@ -15,9 +15,7 @@ import { Returns } from './pages/Returns';
 import { ReturnDetail } from './pages/ReturnDetail';
 import { DeployedEquipment } from './pages/DeployedEquipment';
 import { Inventory } from './pages/Inventory';
-import { Forecasting } from './pages/Forecasting';
 import { Bundles } from './pages/Bundles';
-import { Pricing } from './pages/Pricing';
 import { Policies } from './pages/Policies';
 import { Approvals } from './pages/Approvals';
 import { ReportedIssues } from './pages/ReportedIssues';
@@ -98,15 +96,12 @@ export function App() {
       <Route path="/orders/:id" element={<Protected><OrderDetail /></Protected>} />
       <Route path="/tools" element={<Protected><Shipping /></Protected>} />
       <Route path="/shipping" element={<Navigate to="/tools" replace />} />
-      <Route path="/returns" element={<Protected><Returns kind="return" /></Protected>} />
-      <Route path="/swaps" element={<Protected><Returns kind="swap" /></Protected>} />
+      <Route path="/cases" element={<Protected><Returns /></Protected>} />
       <Route path="/returns/:id" element={<Protected><ReturnDetail /></Protected>} />
       <Route path="/deployed" element={<Protected><DeployedEquipment /></Protected>} />
       <Route path="/inventory" element={<Protected><Inventory /></Protected>} />
-      <Route path="/forecasting" element={<Protected><Forecasting /></Protected>} />
       <Route path="/bundles" element={<Protected><Bundles /></Protected>} />
       <Route path="/links" element={<Protected><Links /></Protected>} />
-      <Route path="/pricing" element={<Protected><Pricing /></Protected>} />
       <Route path="/policies" element={<Protected><Policies /></Protected>} />
       <Route path="/approvals" element={<Protected><Approvals /></Protected>} />
       <Route path="/reported-issues" element={<Protected><ReportedIssues /></Protected>} />
@@ -118,8 +113,7 @@ export function App() {
       {/* Merchant self-service portal */}
       <Route path="/portal" element={<PortalProtected><PortalHome /></PortalProtected>} />
       <Route path="/portal/orders" element={<PortalProtected><PortalOrders /></PortalProtected>} />
-      <Route path="/portal/swaps" element={<PortalProtected><PortalCases kind="swap" /></PortalProtected>} />
-      <Route path="/portal/returns" element={<PortalProtected><PortalCases kind="return" /></PortalProtected>} />
+      <Route path="/portal/cases" element={<PortalProtected><PortalCases /></PortalProtected>} />
       <Route path="/portal/analytics" element={<PortalProtected><PortalAnalytics /></PortalProtected>} />
       <Route path="/portal/report" element={<PortalProtected><ReportIssue /></PortalProtected>} />
 

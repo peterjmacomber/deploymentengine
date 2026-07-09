@@ -140,7 +140,7 @@ export function ReportIssue() {
               <p className="small">{result.message}</p>
               <div className="row" style={{ gap: 8, justifyContent: 'center' }}>
                 <Link className="btn" to="/portal">Back to home</Link>
-                <Link className="btn" to={result.case && result.case.items[0]?.returnType === 'REPLACEMENT' ? '/portal/swaps' : '/portal/returns'}>View my {result.case && result.case.items[0]?.returnType === 'REPLACEMENT' ? 'swaps' : 'returns'}</Link>
+                <Link className="btn" to={result.case && result.case.items[0]?.returnType === 'REPLACEMENT' ? '/portal/cases?type=swap' : '/portal/cases?type=return'}>View my {result.case && result.case.items[0]?.returnType === 'REPLACEMENT' ? 'swaps' : 'returns'}</Link>
               </div>
             </Card>
           )}

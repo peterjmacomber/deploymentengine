@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type AddressInput, type DeployedEquipment, type Order, type ReturnCase, ReturnType } from '@de/shared';
 import { api, ApiError } from '../api/client';
@@ -197,15 +197,28 @@ function OrderRow({ o }: { o: Order }) {
 // --------------------------------------------------------------------------- Swaps / Returns
 const isSwap = (r: ReturnCase) => r.items[0]?.returnType === ReturnType.REPLACEMENT;
 
-export function PortalCases({ kind }: { kind: 'swap' | 'return' }) {
+const CASE_TYPES = [{ key: 'all', label: 'All' }, { key: 'swap', label: 'Swaps' }, { key: 'return', label: 'Returns' }] as const;
+
+export function PortalCases() {
+  const [sp, setSp] = useSearchParams();
+  const type = (CASE_TYPES.some((t) => t.key === sp.get('type')) ? sp.get('type') : 'all') as 'all' | 'swap' | 'return';
+  const setType = (t: 'all' | 'swap' | 'return') => { const next = new URLSearchParams(sp); if (t === 'all') next.delete('type'); else next.set('type', t); setSp(next, { replace: true }); };
   const q = useQuery({ queryKey: ['portal-returns'], queryFn: api.portal.returns });
-  const rows = (q.data?.returns ?? []).filter((r) => isSwap(r) === (kind === 'swap'));
-  const title = kind === 'swap' ? 'Swaps' : 'Returns';
+  const all = q.data?.returns ?? [];
+  const rows = all.filter((r) => type === 'all' || isSwap(r) === (type === 'swap'));
+  const count = (t: 'all' | 'swap' | 'return') => all.filter((r) => t === 'all' || isSwap(r) === (t === 'swap')).length;
   return (
-    <PortalLayout title={title}>
+    <PortalLayout title="Returns & Swaps">
+      <div className="tabs" style={{ flexWrap: 'wrap' }}>
+        {CASE_TYPES.map((t) => (
+          <div key={t.key} className={`tab ${type === t.key ? 'active' : ''}`} onClick={() => setType(t.key)}>
+            {t.label} <span className="badge gray" style={{ marginLeft: 4 }}>{count(t.key)}</span>
+          </div>
+        ))}
+      </div>
       <Card>
         {q.isLoading ? <Loading /> : rows.length === 0 ? (
-          <p className="small muted">No {title.toLowerCase()} on your account. Need one? <Link to="/portal/report">Report an issue</Link>.</p>
+          <p className="small muted">Nothing here yet. Need a swap or return? <Link to="/portal/report">Report an issue</Link>.</p>
         ) : (
           <table className="mini-table">
             <thead><tr><th>Case</th><th>Opened</th><th>Reason</th><th>Device</th><th>Status</th></tr></thead>

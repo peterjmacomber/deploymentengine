@@ -5,6 +5,7 @@ import { publicTrack, ApiError } from '../../api/client';
 import { PizzaTracker } from '../../components/PizzaTracker';
 import { Loading } from '../../components/ui';
 import { date } from '../../lib/format';
+import { PublicBand } from './PublicBand';
 
 /**
  * Public, share-token tracking page. Shows fulfillment progress with NO sensitive details
@@ -22,22 +23,16 @@ export function TrackToken() {
   if (error) {
     const e = error as ApiError;
     return (
+      <><PublicBand title="Order Tracking" />
       <div className="public-shell">
-        <div className="public-header"><span className="dot">◆</span><h1 style={{ margin: 0 }}>Tracking</h1></div>
         <div className="card">{e.detail ?? e.message ?? 'This tracking link is not available.'}</div>
-      </div>
+      </div></>
     );
   }
 
   return (
+    <><PublicBand title="Order Tracking" meta={data?.reference ? `Reference ${data.reference}` : undefined} />
     <div className="public-shell">
-      <div className="public-header">
-        <span className="dot">◆</span>
-        <div>
-          <h1 style={{ margin: 0 }}>Order Tracking</h1>
-          <div className="muted small">{data?.reference ? `Reference ${data.reference}` : 'Fulfillment status'}</div>
-        </div>
-      </div>
       <div className="card">
         {isLoading || !data ? (
           <Loading />
@@ -80,6 +75,6 @@ export function TrackToken() {
         )}
       </div>
       <p className="muted small" style={{ textAlign: 'center', marginTop: 16 }}>This page refreshes automatically.</p>
-    </div>
+    </div></>
   );
 }

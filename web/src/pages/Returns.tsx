@@ -43,24 +43,36 @@ const STATUS_TABS: { key: string; label: string; match: (s: string) => boolean }
   { key: 'closed_billing', label: 'Closed by Return after Billing', match: (s) => s === 'CLOSED_BY_RETURN_AFTER_BILLING' || s === 'CLOSED_BY_BILLING' },
 ];
 
-export function Returns({ kind = 'return' }: { kind?: 'return' | 'swap' }) {
+const TYPE_TABS = [
+  { key: 'all', label: 'All' },
+  { key: 'swap', label: 'Swaps' },
+  { key: 'return', label: 'Returns' },
+] as const;
+type CaseType = (typeof TYPE_TABS)[number]['key'];
+const isSwapCase = (r: ReturnCase) => r.items[0]?.returnType === ReturnType.REPLACEMENT;
+
+export function Returns() {
   const navigate = useNavigate();
   const can = useAuth((s) => s.can);
   const qc = useQueryClient();
   const toast = useToast();
-  const [sp] = useSearchParams();
+  const [sp, setSp] = useSearchParams();
+  const type: CaseType = (TYPE_TABS.some((t) => t.key === sp.get('type')) ? sp.get('type') : 'all') as CaseType;
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ ...BLANK, returnType: (kind === 'swap' ? ReturnType.REPLACEMENT : ReturnType.RETURN) as ReturnType });
+  const [form, setForm] = useState({ ...BLANK, returnType: (type === 'swap' ? ReturnType.REPLACEMENT : ReturnType.RETURN) as ReturnType });
   const [statusTab, setStatusTab] = useState(() => (STATUS_TABS.some((t) => t.key === sp.get('tab')) ? sp.get('tab')! : 'all'));
-  const isSwaps = kind === 'swap';
+  const isSwaps = type === 'swap';
   const noun = isSwaps ? 'swap' : 'return';
 
   const { data, isLoading } = useQuery({
     queryKey: ['returns'],
     queryFn: () => api.returns.list({}),
   });
-  // A swap = REPLACEMENT-type case; a return = everything else (RETURN / REPAIR).
-  const kindRows = (data?.returns ?? []).filter((r) => (r.items[0]?.returnType === ReturnType.REPLACEMENT) === isSwaps);
+  const allCases = data?.returns ?? [];
+  // Type tab: all cases, only swaps (REPLACEMENT), or only returns (RETURN / REPAIR).
+  const kindRows = allCases.filter((r) => type === 'all' || isSwapCase(r) === (type === 'swap'));
+  const typeCount = (t: CaseType) => allCases.filter((r) => t === 'all' || isSwapCase(r) === (t === 'swap')).length;
+  const setType = (t: CaseType) => { const next = new URLSearchParams(sp); if (t === 'all') next.delete('type'); else next.set('type', t); setSp(next, { replace: true }); };
 
   // Real status: for imported POS Portal returns show their RMA status; else our lifecycle.
   const rstatusRaw = (r: ReturnCase) => r.pospStatus ?? r.lifecycle;
@@ -102,7 +114,7 @@ export function Returns({ kind = 'return' }: { kind?: 'return' | 'swap' }) {
     { key: 'delinquent', label: 'Delinquent', header: 'Delinquent', sort: (r) => (r.delinquent ? 0 : 1), cell: (r) => (r.delinquent ? <Badge tone="red">Delinquent</Badge> : '—') },
     { key: 'created', label: 'Opened', header: 'Opened', sort: (r) => r.createdAt, cell: (r) => <span className="small">{date(r.createdAt)}</span> },
   ];
-  const { columns, menu } = useVisibleColumns(`cases-${kind}`, allColumns, ['rma', 'dba', 'mid', 'typeReason', 'status', 'recvExp', 'created']);
+  const { columns, menu } = useVisibleColumns('cases', allColumns, ['rma', 'dba', 'mid', 'typeReason', 'status', 'recvExp', 'created']);
 
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -138,19 +150,27 @@ export function Returns({ kind = 'return' }: { kind?: 'return' | 'swap' }) {
 
   return (
     <AppShell
-      title={isSwaps ? 'Swaps' : 'Returns'}
+      title="Returns & Swaps"
       actions={can(Permission.RETURN_WRITE) && <button className="btn primary" onClick={() => setOpen(true)}>+ New {noun}</button>}
     >
+      <div className="tabs" style={{ flexWrap: 'wrap' }}>
+        {TYPE_TABS.map((t) => (
+          <div key={t.key} className={`tab ${type === t.key ? 'active' : ''}`} onClick={() => setType(t.key)}>
+            {t.label} <span className="badge gray" style={{ marginLeft: 4 }}>{typeCount(t.key)}</span>
+          </div>
+        ))}
+      </div>
+
       <div className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
         <div style={{ flex: 1 }}>{ctl.toolbar}</div>
         {menu}
       </div>
 
-      <div className="tabs" style={{ flexWrap: 'wrap' }}>
+      <div className="chips">
         {STATUS_TABS.map((t) => (
-          <div key={t.key} className={`tab ${statusTab === t.key ? 'active' : ''}`} onClick={() => setStatusTab(t.key)}>
-            {t.label} <span className="badge gray" style={{ marginLeft: 4 }}>{tabCount(t)}</span>
-          </div>
+          <button key={t.key} type="button" className={`chip ${statusTab === t.key ? 'active' : ''}`} onClick={() => setStatusTab(t.key)}>
+            {t.label} <span className="chip-count">{tabCount(t)}</span>
+          </button>
         ))}
       </div>
 

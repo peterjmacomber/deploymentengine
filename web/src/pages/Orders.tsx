@@ -126,11 +126,11 @@ export function Orders() {
         </div>
       )}
 
-      <div className="tabs" style={{ flexWrap: 'wrap' }}>
+      <div className="chips">
         {PHASES.map((p) => (
-          <div key={p.key} className={`tab ${phase === p.key ? 'active' : ''}`} onClick={() => setPhase(p.key)}>
-            {p.label} <span className="badge gray" style={{ marginLeft: 4 }}>{countOf(p)}</span>
-          </div>
+          <button key={p.key} type="button" className={`chip ${phase === p.key ? 'active' : ''}`} onClick={() => setPhase(p.key)}>
+            {p.label} <span className="chip-count">{countOf(p)}</span>
+          </button>
         ))}
       </div>
 

@@ -3,12 +3,12 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { useAuth } from '../stores/authStore';
+import logoBlue from '../assets/fortis-logo-blue.png';
 
 const NAV = [
   { to: '/portal', label: 'Home', end: true },
   { to: '/portal/orders', label: 'Orders' },
-  { to: '/portal/swaps', label: 'Swaps' },
-  { to: '/portal/returns', label: 'Returns' },
+  { to: '/portal/cases', label: 'Returns & Swaps' },
   { to: '/portal/analytics', label: 'Analytics' },
 ];
 
@@ -38,11 +38,12 @@ export function PortalLayout({ title, children }: { title?: string; children: Re
       )}
 
       <header className="portal-header">
-        <div className="portal-brand">
-          <div className="portal-logo">⬢</div>
+        <div className="portal-brand" style={{ cursor: 'pointer' }} onClick={() => navigate('/portal')}>
+          <img src={logoBlue} alt="Fortis" style={{ height: 26, display: 'block' }} />
+          <div style={{ width: 1, height: 26, background: 'var(--border)' }} />
           <div>
-            <div className="portal-title">{merchantName}</div>
-            <div className="small muted">Merchant Self-Service</div>
+            <div className="portal-title" style={{ fontSize: 14 }}>{merchantName}</div>
+            <div className="small muted" style={{ fontSize: 11 }}>Equipment Portal</div>
           </div>
         </div>
         <nav className="portal-nav">
