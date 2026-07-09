@@ -85,7 +85,7 @@ export function DataTable<T>({
                   {columns.map((c, i) => <td key={i}>{c.cell(row)}</td>)}
                 </tr>
                 {renderExpanded && isOpen && (
-                  <tr><td colSpan={colSpan} style={{ background: '#fafbfc', padding: '14px 18px' }}>{renderExpanded(row)}</td></tr>
+                  <tr><td colSpan={colSpan} style={{ background: '#FAFAF9', padding: '14px 18px' }}>{renderExpanded(row)}</td></tr>
                 )}
               </Fragment>
             );
