@@ -203,6 +203,13 @@ table.mini-table tr:last-child td { border-bottom: none; }
 .tab { padding: 9px 14px; cursor: pointer; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; }
 .tab.active { color: var(--heading); border-bottom-color: var(--celestial); }
 .divider { height: 1px; background: var(--border); margin: 16px 0; }
+/* Segmented filter chips (Orders phases, cases status) — selected = network-blue fill */
+.chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.chip { padding: 6px 13px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--muted); font-weight: 600; font-size: 12.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.chip:hover { border-color: var(--celestial); }
+.chip.active { background: var(--network-blue); border-color: var(--network-blue); color: #fff; }
+.chip .chip-count { background: rgba(0,0,0,0.08); border-radius: 999px; padding: 0 6px; font-size: 11px; }
+.chip.active .chip-count { background: rgba(255,255,255,0.22); }
 .pill-input { display: flex; gap: 8px; align-items: center; }
 label.inline { display: inline-flex; align-items: center; gap: 7px; font-weight: 500; }
 

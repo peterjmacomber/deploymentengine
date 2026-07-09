@@ -61,7 +61,7 @@ export function ReturnDetail() {
       title={`${isSwap ? 'Swap' : 'Return'} #${r.id}`}
       actions={
         <div className="row">
-          <button className="btn" onClick={() => navigate(isSwap ? '/swaps' : '/returns')}>← {isSwap ? 'Swaps' : 'Returns'}</button>
+          <button className="btn" onClick={() => navigate(isSwap ? '/cases?type=swap' : '/cases?type=return')}>← Returns &amp; Swaps</button>
           {can(Permission.RETURN_WRITE) && (
             <button className="btn primary" onClick={() => receive.mutate()} disabled={receive.isPending}>Receive items</button>
           )}

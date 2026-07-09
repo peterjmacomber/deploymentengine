@@ -25,11 +25,11 @@ export function Dashboard() {
           <div className="grid cols-4" style={{ marginBottom: 16 }}>
             <Kpi label="Orders" value={data.kpis.orders} onClick={() => navigate('/orders')} />
             <Kpi label="Active Deployed" value={data.kpis.deployedActive} onClick={() => navigate('/deployed?status=Active')} />
-            <Kpi label="Open Returns" value={data.kpis.openReturns} onClick={() => navigate('/returns')} />
+            <Kpi label="Open Returns" value={data.kpis.openReturns} onClick={() => navigate('/cases')} />
             <Kpi label="Pending Approvals" value={data.kpis.pendingExceptions} alert={data.kpis.pendingExceptions > 0} onClick={() => navigate('/approvals?status=Pending')} />
             <Kpi label="Merchants" value={data.kpis.merchants} onClick={() => navigate('/merchants')} />
-            <Kpi label="Delinquent Returns" value={data.kpis.delinquent} alert={data.kpis.delinquent > 0} onClick={() => navigate('/returns?delinquent=Delinquent')} />
-            <Kpi label="Inventory Alerts" value={data.kpis.inventoryAlerts} alert={data.kpis.inventoryAlerts > 0} onClick={() => navigate('/forecasting?tab=alerts')} />
+            <Kpi label="Delinquent Returns" value={data.kpis.delinquent} alert={data.kpis.delinquent > 0} onClick={() => navigate('/cases?delinquent=Delinquent')} />
+            <Kpi label="Inventory Alerts" value={data.kpis.inventoryAlerts} alert={data.kpis.inventoryAlerts > 0} onClick={() => navigate('/inventory?tab=alerts')} />
           </div>
 
           <div className="grid cols-2">
@@ -45,7 +45,7 @@ export function Dashboard() {
                       <strong>{count}</strong>
                     </div>
                   ))}
-                  <div className="row between clickable-row" onClick={() => navigate('/swaps')} style={{ cursor: 'pointer' }}>
+                  <div className="row between clickable-row" onClick={() => navigate('/cases?type=swap')} style={{ cursor: 'pointer' }}>
                     <StatusBadge status="SWAPS" />
                     <strong>{data.swaps}</strong>
                   </div>
@@ -58,13 +58,13 @@ export function Dashboard() {
                 <div className="row between clickable-row" onClick={() => navigate('/orders')} style={{ cursor: 'pointer' }}>
                   <span className="muted small">Total orders</span><strong>{money(data.billing.totalOrderValue)}</strong>
                 </div>
-                <div className="row between clickable-row" onClick={() => navigate('/returns')} style={{ cursor: 'pointer' }}>
+                <div className="row between clickable-row" onClick={() => navigate('/cases')} style={{ cursor: 'pointer' }}>
                   <span className="muted small">Returns (equipment value)</span><strong>{money(data.billing.returnsValue)}</strong>
                 </div>
-                <div className="row between clickable-row" onClick={() => navigate('/returns?tab=closed_return')} style={{ cursor: 'pointer' }}>
+                <div className="row between clickable-row" onClick={() => navigate('/cases?tab=closed_return')} style={{ cursor: 'pointer' }}>
                   <span className="muted small">Warranty returns <span className="muted" title="Closed by Return — no charge">ⓘ</span></span><strong>{data.billing.warrantyReturns}</strong>
                 </div>
-                <div className="row between clickable-row" onClick={() => navigate('/returns?tab=closed_billing')} style={{ cursor: 'pointer' }}>
+                <div className="row between clickable-row" onClick={() => navigate('/cases?tab=closed_billing')} style={{ cursor: 'pointer' }}>
                   <span className="muted small">Billed returns <span className="muted" title="Closed by Return after Billing — a charge was involved (out-of-warranty, damage, repair, etc.)">ⓘ</span></span><strong>{data.billing.billedReturns}</strong>
                 </div>
               </div>

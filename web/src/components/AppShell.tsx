@@ -15,9 +15,8 @@ const GROUPS: { group: string; items: NavDef[] }[] = [
     items: [
       { to: '/merchants', label: 'Merchants', perm: Permission.MERCHANT_READ },
       { to: '/orders', label: 'Orders', perm: Permission.ORDER_READ },
-      { to: '/returns', label: 'Returns', perm: Permission.RETURN_READ },
-      { to: '/swaps', label: 'Swaps', perm: Permission.RETURN_READ },
-      { to: '/inventory', label: 'Inventory', perm: Permission.INVENTORY_READ },
+      { to: '/cases', label: 'Returns & Swaps', perm: Permission.RETURN_READ },
+      { to: '/inventory', label: 'Inventory & Forecast', perm: Permission.INVENTORY_READ },
       { to: '/tools', label: 'Shipping Tools', perm: Permission.SHIPPING_READ },
     ],
   },
@@ -26,7 +25,6 @@ const GROUPS: { group: string; items: NavDef[] }[] = [
     items: [
       { to: '/approvals', label: 'Approvals', perm: Permission.EXCEPTION_APPROVE, badge: 'approvals' },
       { to: '/reported-issues', label: 'Reported Issues', perm: Permission.EXCEPTION_APPROVE },
-      { to: '/forecasting', label: 'Forecasting', perm: Permission.EXCEPTION_APPROVE },
       { to: '/links', label: 'Checkout Links', perm: Permission.LINK_WRITE },
       { to: '/users', label: 'Users', perm: Permission.USER_READ },
     ],

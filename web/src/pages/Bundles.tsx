@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ALL_BRANDS,
@@ -10,8 +11,8 @@ import {
   type UpsertBundleInput,
 } from '@de/shared';
 import { AppShell } from '../components/AppShell';
-import { SectionNav } from '../components/SectionNav';
 import { Badge } from '../components/ui';
+import { PricingPanel } from './Pricing';
 import { DataTable } from '../components/DataTable';
 import { Modal } from '../components/Modal';
 import { api, ApiError } from '../api/client';
@@ -61,6 +62,9 @@ export function Bundles() {
   const canWrite = useAuth((s) => s.can)(Permission.BUNDLE_WRITE);
   const qc = useQueryClient();
   const toast = useToast();
+  const [sp, setSp] = useSearchParams();
+  const topTab: 'bundles' | 'pricing' = sp.get('tab') === 'pricing' ? 'pricing' : 'bundles';
+  const setTopTab = (t: 'bundles' | 'pricing') => { const next = new URLSearchParams(sp); if (t === 'bundles') next.delete('tab'); else next.set('tab', t); setSp(next, { replace: true }); };
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>({ ...BLANK });
   const [editing, setEditing] = useState(false);
@@ -155,7 +159,7 @@ export function Bundles() {
   return (
     <AppShell
       title="Bundles & Pricing"
-      actions={canWrite && (
+      actions={topTab === 'bundles' && canWrite && (
         <div className="row">
           {selected.size > 0 && (
             <>
@@ -168,7 +172,15 @@ export function Bundles() {
         </div>
       )}
     >
-      <SectionNav tabs={[{ to: '/bundles', label: 'Bundles', end: true }, { to: '/pricing', label: 'Pricing' }]} />
+      <div className="tabs" style={{ flexWrap: 'wrap' }}>
+        <div className={`tab ${topTab === 'bundles' ? 'active' : ''}`} onClick={() => setTopTab('bundles')}>Bundles</div>
+        <div className={`tab ${topTab === 'pricing' ? 'active' : ''}`} onClick={() => setTopTab('pricing')}>Device Pricing</div>
+      </div>
+
+      {topTab === 'pricing' ? (
+        <PricingPanel canEdit={canWrite} />
+      ) : (
+      <>
       <div className="tabs" style={{ marginBottom: 12 }}>
         {([
           ['active', `Active (${activeCount})`],
@@ -264,6 +276,8 @@ export function Bundles() {
             : []),
         ]}
       />
+      </>
+      )}
 
       {open && (
         <Modal
