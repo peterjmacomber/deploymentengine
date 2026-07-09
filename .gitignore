@@ -17,3 +17,20 @@ server/node_modules/.prisma/
 .DS_Store
 coverage/
 *.tsbuildinfo
+
+# OS / editor junk
+Thumbs.db
+.vscode/
+.idea/
+*.tmp
+*.swp
+
+# Never commit archives or raw font originals. Web fonts live in web/src/assets/fonts
+# as .woff/.woff2 (those ARE tracked); .otf sources and zips are not.
+*.zip
+web/src/assets/**/*.otf
+
+# Design-handoff bundles / design-system exports (kept out of the app repo)
+_ds/
+**/ui-redesign-and-alignment-project/
+*.dc.html

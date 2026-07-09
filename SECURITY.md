@@ -16,6 +16,14 @@ moving it to production.
   via `canManageRole`). Policies, Bundles & Pricing, Audit Log, API Keys, and dev tools are **admin-only**.
 - The web hides nav by permission, but the **server is the source of truth** — hiding UI is never the control.
 
+**Merchant self-service portal (tenant isolation)**
+- The `MERCHANT` role holds a single permission (`PORTAL_USE`) and **no internal-route access**. Every
+  `/api/v1/portal/*` route independently forces the request to the token's own `merchantId`, so a
+  merchant can never read or act on another merchant's data regardless of any id in the URL.
+- Merchant logins are provisioned only by admins/managers (Merchant → Portal Access). Admin/manager
+  **impersonation** issues a short-lived merchant-scoped token that records the impersonating actor
+  (`imp`) and is written to the audit log; `sub` stays the real internal user for traceability.
+
 **Integration API keys** (Admin → API Keys)
 - DB-backed, stored as **sha256 hashes** (raw shown once at creation); `active` flag for instant revocation.
 - Authenticate via `X-API-Key` on `/api/v1/*` with the **non-admin** grant set (no user mgmt, pricing,
@@ -76,11 +84,14 @@ Config-only — identical endpoints and code. Change only: `POSP_BASE_URL` (→ 
 (orders bill Fortis). Do a read-only smoke test (merchants/bundles/orders) before enabling order writes;
 consider `POSP_SUBMIT_ORDERS=false` for an initial dry run (creates DRAFT without finalizing).
 
-## Fortis Gateway
+## Fortis Gateway (Zeamster)
 
-`FORTIS_MODE=mock` until credentials are provisioned. When switching to `live`, provide `FORTIS_*` via the
-secret manager (not plaintext), verify serial→terminal activation against a test merchant first, and
-confirm the LINKS field mapping (last-8 of serial) matches the Fortis account.
+Fortis is a **live integration (no mock)**. Provide `FORTIS_BASE_URL` + credentials
+(`FORTIS_DEVELOPER_ID`/`FORTIS_USER_ID`/`FORTIS_USER_API_KEY`, etc.) via the secret manager, not
+plaintext. For production, repoint `FORTIS_BASE_URL` at the prod host and use prod credentials, verify
+serial→terminal activation against a test merchant first, and confirm the terminal defaults
+(manufacturer/application/CVM — set on the admin Fortis Gateway page, persisted in the DB `Setting`)
+match the target Fortis account. `terminal_api_id` is the **last-8 of the serial**.
 
 ## Accepted trade-offs
 - JWT in `localStorage` (standard for SPAs); mitigated by no XSS sinks + short TTL. Move to httpOnly

@@ -1,8 +1,14 @@
 # Deployment Engine — Production Design & Decisions
 
-**Status:** Prototype build, architected for production promotion.
+**Status:** Built and running on the **live POS Portal sandbox** with a **live Fortis Gateway**
+integration; architected for production promotion (config-only switch). UI restyled onto the Fortis
+Design System.
 **Owner:** Peter Macomber (FortisPay)
-**Upstream API:** POS Portal / ScanSource v2 (`https://api.posportal.com`, sandbox `https://sandbox-wapi.posportal.com/v2`)
+**Upstream API:** POS Portal / ScanSource v2 (`https://api.posportal.com`, sandbox `https://sandbox-wapi.posportal.com/v2`); Fortis Gateway / Zeamster (`https://api.sandbox.fortis.tech`)
+
+> This document records the **original** consolidation rationale (D1–D6). Decisions added since
+> (merchant portal, live Fortis, UI refactor) are D7–D9 below. For the current running state and
+> open items, see **CLAUDE.md** / README "Current status".
 
 This document records the design decisions for consolidating the existing prototypes
 (`Deployment Forecasting File`, `posp-storefront-mock`, `Deployment Swap Insights`) into a
@@ -83,6 +89,27 @@ A bundle = POS Portal bundle (device + accessories + paper) + a **local overlay*
 `application`, `encryption`, `processorPlatform`, plus visibility (`active`), display, and
 accounting fields. Admin CRUD manages the overlay; POS Portal snapshot is cached.
 
+### D7 — Merchant self-service portal with hard tenant isolation
+A third API plane `/api/v1/portal/*` for a new `MERCHANT` login role that holds only `PORTAL_USE`
+(no internal-route reach). Every portal route forces the token's own `merchantId` server-side, so a
+merchant sees only their own orders/cases/analytics. Admins/managers can **impersonate** a merchant
+(scoped token, audited) to see the portal as them. Includes self-service ordering (shipping
+pre-filled) and a guided **Report an issue** flow that reuses `returnService` (auto-proceed in-window,
+park out-of-window for approval); every report is logged to `ReportedIssue` for a Management view.
+
+### D8 — Fortis Gateway is a live integration (no mock)
+Confirmed the real Zeamster API (`api.sandbox.fortis.tech`; `developer-id`/`user-id`/`user-api-key`
+headers). Merchants = "locations" (searched server-side by name/account number — the account # is the
+MID, often blank in sandbox). Terminal create maps full serial→`serial_number`, last-8→`terminal_api_id`,
+with manufacturer/application/CVM **defaults configured in-app** (persisted in `Setting`, audited;
+`terminal_manufacturer_code` 2=Ingenico). Prod is a `FORTIS_BASE_URL`/creds swap.
+
+### D9 — UI on the Fortis Design System
+Restyled from a Claude Design handoff onto Fortis tokens (Network Blue / Celestial / Power Orange),
+Bio Sans (self-hosted) + Inter, a fixed 3-zone sidebar, and shared components. Navigation consolidated
+(Returns+Swaps → `/cases`; Forecasting → Inventory tabs; Pricing → a Bundles tab). Visual-only —
+no API/data/permission changes.
+
 ---
 
 ## 3. Stack
@@ -103,10 +130,10 @@ Monorepo via npm workspaces: `shared/`, `server/`, `web/`.
 
 ## 4. Run modes
 
-- `POSP_MODE=mock` (default): everything runs on seeded data. Use the built-in
-  `POST /api/v1/dev/orders/:id/ship` to simulate shipment → serials → Fortis → tracker.
-- `POSP_MODE=live`: requires `POSP_TENANT_ID / POSP_CLIENT_ID / POSP_CLIENT_SECRET / POSP_BASE_URL`.
-- `FORTIS_MODE=mock|live` likewise.
+- `POSP_MODE=live` (current): real OAuth2 client-credentials against the POS Portal sandbox
+  (`POSP_CLIENT_ID / POSP_CLIENT_SECRET / POSP_TOKEN_URL / POSP_SCOPE / POSP_BASE_URL`). `POSP_MODE=mock`
+  still exists (seeded data + `POST /api/v1/dev/orders/:id/ship` to simulate shipment) for offline dev.
+- **Fortis is live-only** (no mock) — configured via `FORTIS_BASE_URL` + credentials.
 
 ---
 
@@ -132,7 +159,6 @@ Each is isolated to the adapter/config layer by design (D1), so the app is build
 - [x] Web: auth, app shell, dashboards, section pages, pizza tracker
 - [x] Public: merchant sign-up → equipment order flow
 - [x] Seed data + README run instructions
-- [ ] Typecheck/build/runtime verification — **pending**: Node.js is not installed on the
-      build machine, so `npm install` / `tsc` / runtime could not be executed here. Code was
-      instead verified by manual review. Run `npm install && npm run typecheck` after
-      installing Node 20 to confirm.
+- [x] Typecheck/build/runtime verification — runs via Docker; `docker compose run --rm tools npm run
+      typecheck` is green across all workspaces and the app runs against the live sandbox.
+- [x] Merchant portal (D7), live Fortis Gateway (D8), Fortis Design System UI refactor (D9) — merged to `main`.
