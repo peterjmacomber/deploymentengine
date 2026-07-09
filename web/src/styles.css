@@ -1,6 +1,18 @@
-/* Inter (body/UI). Bio Sans (display/headlines) is a licensed Fortis brand font not shipped in
-   this repo; the display stack falls back to Inter automatically until the .otf files are added. */
+/* Inter (body/UI) via Google Fonts; Bio Sans (Fortis display/headline font) self-hosted below. */
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+
+@font-face {
+  font-family: "Bio Sans";
+  src: url("./assets/fonts/biosans-regular.woff2") format("woff2"),
+       url("./assets/fonts/biosans-regular.woff") format("woff");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Bio Sans";
+  src: url("./assets/fonts/biosans-semibold.woff2") format("woff2"),
+       url("./assets/fonts/biosans-semibold.woff") format("woff");
+  font-weight: 600; font-style: normal; font-display: swap;
+}
 
 :root {
   /* Brand */
