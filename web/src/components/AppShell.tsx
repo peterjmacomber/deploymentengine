@@ -78,6 +78,7 @@ export function AppShell({ title, actions, crumb, children }: { title: string; a
       <aside className="sidebar">
         <div className="brand">
           <img src={logoWhite} alt="Fortis" />
+          <div className="brand-div" />
           <div className="wordmark">Deployment<br />Engine</div>
         </div>
         <nav className="nav-scroll">
@@ -88,7 +89,7 @@ export function AppShell({ title, actions, crumb, children }: { title: string; a
             return (
               <div key={g.group}>
                 <button type="button" className="nav-group" onClick={() => toggleGroup(g.group)} aria-expanded={!isCollapsed}>
-                  <span className="chev" aria-hidden>{isCollapsed ? '▸' : '▾'}</span> {g.group}
+                  <span>{g.group}</span><span className="chev" aria-hidden>{isCollapsed ? '▸' : '▾'}</span>
                 </button>
                 {!isCollapsed && items.map((it) => (
                   <NavLink key={it.to} to={it.to} end={it.to === '/'} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>

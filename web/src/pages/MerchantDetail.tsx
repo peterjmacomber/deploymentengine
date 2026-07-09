@@ -177,19 +177,18 @@ export function MerchantDetail() {
         </div>
       }
     >
-      <div className="row" style={{ gap: 24, flexWrap: 'wrap', marginBottom: 12 }}>
-        <div><div className="muted small">MID</div><span className="mono">{merchant.mid ?? '—'}</span></div>
-        {merchant.primaryContact && <div><div className="muted small">Contact</div>{merchant.primaryContact}</div>}
-        {merchant.email && <div><div className="muted small">Email</div>{merchant.email}</div>}
-        {merchant.phone && <div><div className="muted small">Phone</div>{merchant.phone}</div>}
+      <div className="meta-strip">
+        <div className="meta-item"><div className="meta-label">MID</div><div className="meta-value mono">{merchant.mid ?? '—'}</div></div>
+        {merchant.primaryContact && <div className="meta-item"><div className="meta-label">Contact</div><div className="meta-value">{merchant.primaryContact}</div></div>}
+        {merchant.email && <div className="meta-item"><div className="meta-label">Email</div><div className="meta-value mono">{merchant.email}</div></div>}
+        {merchant.phone && <div className="meta-item"><div className="meta-label">Phone</div><div className="meta-value">{merchant.phone}</div></div>}
         {merchant.shippingAddress && (
-          <div><div className="muted small">Ships to</div>{merchant.shippingAddress.city}, {merchant.shippingAddress.region}</div>
+          <div className="meta-item"><div className="meta-label">Ships to</div><div className="meta-value">{merchant.shippingAddress.city}, {merchant.shippingAddress.region}</div></div>
         )}
-        <div>
-          <div className="muted small">Fortis Gateway</div>
+        <div style={{ marginLeft: 'auto', alignSelf: 'center' }}>
           {merchant.fortisLocationId
-            ? <Badge tone="green">{merchant.fortisLocationName ?? 'Linked'}</Badge>
-            : <span className="small muted">Not linked · <Link className="rowlink" to="/fortis">link</Link></span>}
+            ? <Badge tone="green">Fortis Gateway · {merchant.fortisLocationName ?? 'Linked'}</Badge>
+            : <span className="small muted">Fortis Gateway · Not linked · <Link className="rowlink" to="/fortis">link</Link></span>}
         </div>
       </div>
 

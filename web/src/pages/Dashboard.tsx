@@ -32,7 +32,7 @@ export function Dashboard() {
             <Kpi label="Inventory Alerts" value={data.kpis.inventoryAlerts} alert={data.kpis.inventoryAlerts > 0} onClick={() => navigate('/inventory?tab=alerts')} />
           </div>
 
-          <div className="grid cols-2">
+          <div className="grid" style={{ gridTemplateColumns: '1fr 1.4fr' }}>
             <Card>
               <h3>Orders by status</h3>
               {Object.keys(data.ordersByStatus).length === 0 ? (
