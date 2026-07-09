@@ -242,6 +242,25 @@ label.inline { display: inline-flex; align-items: center; gap: 7px; font-weight:
 .bundle-card:hover { border-color: var(--celestial); }
 .bundle-card.selected { border-color: var(--celestial); box-shadow: var(--focus-ring); }
 
+/* ---- Public checkout (LinkPage) ---- */
+.co-band { background: linear-gradient(135deg, #003057 0%, #00263A 100%); padding: 0 28px; }
+.co-band-inner { max-width: 1000px; margin: 0 auto; height: 60px; display: flex; align-items: center; gap: 14px; }
+.co-band-inner img { height: 24px; display: block; }
+.co-band-div { width: 1px; height: 24px; background: rgba(255,255,255,0.25); }
+.co-band-title { font-family: var(--font-display); font-size: 13.5px; font-weight: 600; color: #fff; }
+.co-band-meta { margin-left: auto; font-size: 12px; color: #BFCBD5; }
+.co-main { max-width: 1000px; margin: 0 auto; padding: 32px 28px 64px; box-sizing: border-box; }
+.co-eyebrow { font-family: var(--font-display); font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--celestial); margin-bottom: 6px; }
+.co-title { font-family: var(--font-display); font-weight: 600; font-size: 28px; letter-spacing: -0.02em; color: var(--heading); line-height: 1.15; }
+.co-grid { display: grid; grid-template-columns: 1fr 340px; gap: 20px; align-items: start; margin-top: 24px; }
+.co-step-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.co-stepnum { width: 24px; height: 24px; border-radius: 50%; background: var(--network-blue); color: #fff; display: grid; place-items: center; font-size: 12.5px; font-weight: 700; flex: none; }
+.co-step-title { font-family: var(--font-display); font-weight: 600; font-size: 16px; color: var(--heading); }
+.co-summary { position: sticky; top: 20px; }
+.co-qtybtn { width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--border-strong); background: #fff; cursor: pointer; font-size: 15px; color: var(--text); display: grid; place-items: center; }
+.co-qtybtn:hover { background: var(--bg); }
+@media (max-width: 800px) { .co-grid { grid-template-columns: 1fr; } .co-summary { position: static; } }
+
 /* ---- Universal table controls ---- */
 .table-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
 .tc-search { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-strong); min-width: 260px; flex: 0 1 300px; font-size: 13px; font-family: inherit; }
