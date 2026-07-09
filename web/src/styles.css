@@ -294,7 +294,7 @@ table.fc-grid tr.fc-editrow td { background: #F3F8FB; }
 /* ---- Merchant self-service portal ---- */
 .portal { min-height: 100%; background: var(--bg); }
 .portal-imp-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--warn-bg); color: #7c4a03; padding: 8px 20px; font-size: 13px; border-bottom: 1px solid #f0d089; }
-.portal-header { display: flex; align-items: center; gap: 20px; padding: 12px 24px; background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
+.portal-header { display: flex; align-items: center; gap: 24px; height: 64px; padding: 0 28px; background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
 .portal-brand { display: flex; align-items: center; gap: 10px; }
 .portal-logo { width: 34px; height: 34px; border-radius: 9px; background: var(--celestial); color: #fff; display: grid; place-items: center; font-size: 18px; }
 .portal-title { font-weight: 600; font-size: 15px; letter-spacing: -0.01em; font-family: var(--font-display); color: var(--heading); }

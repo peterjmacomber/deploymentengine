@@ -113,8 +113,7 @@ export function App() {
       {/* Merchant self-service portal */}
       <Route path="/portal" element={<PortalProtected><PortalHome /></PortalProtected>} />
       <Route path="/portal/orders" element={<PortalProtected><PortalOrders /></PortalProtected>} />
-      <Route path="/portal/swaps" element={<PortalProtected><PortalCases kind="swap" /></PortalProtected>} />
-      <Route path="/portal/returns" element={<PortalProtected><PortalCases kind="return" /></PortalProtected>} />
+      <Route path="/portal/cases" element={<PortalProtected><PortalCases /></PortalProtected>} />
       <Route path="/portal/analytics" element={<PortalProtected><PortalAnalytics /></PortalProtected>} />
       <Route path="/portal/report" element={<PortalProtected><ReportIssue /></PortalProtected>} />
 
