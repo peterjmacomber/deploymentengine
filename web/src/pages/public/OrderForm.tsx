@@ -5,6 +5,7 @@ import type { ShippingMethod } from '@de/shared';
 import { publicApi, ApiError } from '../../api/client';
 import { money } from '../../lib/format';
 import type { ApplyPayload } from './Apply';
+import { PublicBand } from './PublicBand';
 
 export function OrderForm() {
   const navigate = useNavigate();
@@ -56,8 +57,8 @@ export function OrderForm() {
 
   if (placed) {
     return (
+      <><PublicBand title="Order Confirmed" />
       <div className="public-shell">
-        <div className="public-header"><span className="dot">◆</span><div><h1 style={{ margin: 0 }}>Order Confirmed</h1></div></div>
         <div className="steps"><div className="step">1 · Your business</div><div className="step">2 · Choose equipment</div><div className="step active">3 · Confirmation</div></div>
         <div className="card">
           <h2>✓ Thank you, {apply.applicant.dbaName}!</h2>
@@ -67,13 +68,13 @@ export function OrderForm() {
             {placed.redirectUrl && <a className="btn" href={placed.redirectUrl}>Return to application</a>}
           </div>
         </div>
-      </div>
+      </div></>
     );
   }
 
   return (
+    <><PublicBand title="Choose Your Equipment" meta={apply.applicant.dbaName} />
     <div className="public-shell">
-      <div className="public-header"><span className="dot">◆</span><div><h1 style={{ margin: 0 }}>Choose Your Equipment</h1><div className="muted small">{apply.applicant.dbaName}</div></div></div>
       <div className="steps"><div className="step">1 · Your business</div><div className="step active">2 · Choose equipment</div><div className="step">3 · Confirmation</div></div>
 
       <div className="grid" style={{ gap: 12 }}>
@@ -109,6 +110,6 @@ export function OrderForm() {
           {error && <div className="err small" style={{ marginTop: 10, color: 'var(--danger)' }}>{error}</div>}
         </div>
       )}
-    </div>
+    </div></>
   );
 }

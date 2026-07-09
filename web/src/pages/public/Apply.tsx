@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { PublicBand } from './PublicBand';
 
 /**
  * Lightweight merchant application sign-up (simulates the step an external e-sign
@@ -34,8 +35,8 @@ export function Apply() {
   };
 
   return (
+    <><PublicBand title="Equipment Application" meta="Powered by FortisPay Deployment Engine" />
     <div className="public-shell">
-      <div className="public-header"><span className="dot">◆</span><div><h1 style={{ margin: 0 }}>Equipment Application</h1><div className="muted small">Powered by FortisPay Deployment Engine</div></div></div>
       <div className="steps"><div className="step active">1 · Your business</div><div className="step">2 · Choose equipment</div><div className="step">3 · Confirmation</div></div>
 
       <form onSubmit={submit} className="card">
@@ -61,6 +62,6 @@ export function Apply() {
 
         <button className="btn primary" disabled={!ready}>Continue to equipment →</button>
       </form>
-    </div>
+    </div></>
   );
 }

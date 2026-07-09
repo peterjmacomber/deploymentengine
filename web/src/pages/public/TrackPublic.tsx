@@ -4,6 +4,7 @@ import type { OrderStatus } from '@de/shared';
 import { publicApi } from '../../api/client';
 import { PizzaTracker } from '../../components/PizzaTracker';
 import { Loading } from '../../components/ui';
+import { PublicBand } from './PublicBand';
 
 export function TrackPublic() {
   const { id } = useParams();
@@ -15,8 +16,8 @@ export function TrackPublic() {
   });
 
   return (
+    <><PublicBand title="Order Tracking" meta={`Order #${orderId}`} />
     <div className="public-shell">
-      <div className="public-header"><span className="dot">◆</span><div><h1 style={{ margin: 0 }}>Order Tracking</h1><div className="muted small">Order #{orderId}</div></div></div>
       <div className="card">
         {isLoading || !data ? (
           <Loading />
@@ -38,6 +39,6 @@ export function TrackPublic() {
         )}
       </div>
       <p className="muted small" style={{ textAlign: 'center', marginTop: 16 }}>This page refreshes automatically.</p>
-    </div>
+    </div></>
   );
 }

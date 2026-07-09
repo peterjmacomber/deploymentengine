@@ -4,20 +4,13 @@ import type { OrderStatus } from '@de/shared';
 import { publicLink, ApiError } from '../../api/client';
 import { PizzaTracker } from '../../components/PizzaTracker';
 import { money } from '../../lib/format';
-import logoWhite from '../../assets/fortis-logo-white.png';
+import { PublicBand } from './PublicBand';
 
 /** Dark Fortis brand band shared by every checkout state. */
-function CheckoutShell({ expires, children }: { expires?: string; children: ReactNode }) {
+function CheckoutShell({ children }: { children: ReactNode }) {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      <div className="co-band">
-        <div className="co-band-inner">
-          <img src={logoWhite} alt="Fortis" />
-          <div className="co-band-div" />
-          <div className="co-band-title">Equipment Checkout</div>
-          <div className="co-band-meta">{expires ? `Secure link · expires ${expires}` : 'Secure link'}</div>
-        </div>
-      </div>
+      <PublicBand title="Equipment Checkout" meta="Secure link" />
       {children}
     </div>
   );
