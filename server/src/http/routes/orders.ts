@@ -72,3 +72,15 @@ ordersRouter.post(
     res.json({ order });
   }),
 );
+
+ordersRouter.post(
+  '/:id/activate-fortis',
+  requirePermission(Permission.ORDER_WRITE),
+  asyncHandler(async (req, res) => {
+    const id = idParam(req);
+    const { serialNumber } = req.body as { serialNumber?: string };
+    const result = await orderService.activateFortisSerial(id, serialNumber);
+    req.auditMeta = { targetType: 'order', targetId: String(id), action: 'order.fortis.activate' };
+    res.json({ result });
+  }),
+);

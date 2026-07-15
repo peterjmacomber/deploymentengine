@@ -48,6 +48,10 @@ export const bundleService = {
       accountingDeviceModel: input.accountingDeviceModel ?? null,
       accountingUnitPrice: input.accountingUnitPrice ?? null,
       brand: input.brand ?? null,
+      fortisManufacturerId: input.fortisManufacturerId ?? null,
+      fortisApplicationId: input.fortisApplicationId ?? null,
+      fortisCvmId: input.fortisCvmId ?? null,
+      fortisPaymentPriority: input.fortisPaymentPriority ?? null,
       pospSnapshotJson: snapshot ? toJson(snapshot) : undefined,
     };
     const row = await prisma.bundle.upsert({

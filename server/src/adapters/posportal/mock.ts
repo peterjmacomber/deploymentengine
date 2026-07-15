@@ -40,7 +40,9 @@ export class MockPosPortalAdapter implements PosPortalAdapter {
   private merchants = new Map<string, PospMerchant>();
   private orders = new Map<number, StoredOrder>();
   private nextMerchantId = 20000;
-  private nextOrderId = 900000;
+  // Random per-process base so restarts don't reissue the same mock order ids (and thus the
+  // same synthetic serials). In-memory mock only; real POS Portal order ids are globally unique.
+  private nextOrderId = 900000 + Math.floor(Math.random() * 900000);
   private nextDeployedId = 500000;
 
   constructor() {

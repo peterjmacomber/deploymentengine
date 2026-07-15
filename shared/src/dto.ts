@@ -106,6 +106,10 @@ export const upsertBundleSchema = z.object({
   accountingDeviceModel: z.string().max(120).optional(),
   accountingUnitPrice: z.number().nonnegative().optional(),
   brand: z.string().max(60).optional(),
+  fortisManufacturerId: z.string().max(60).optional(),
+  fortisApplicationId: z.string().max(60).optional(),
+  fortisCvmId: z.string().max(60).optional(),
+  fortisPaymentPriority: z.string().max(20).optional(),
 });
 export type UpsertBundleInput = z.infer<typeof upsertBundleSchema>;
 

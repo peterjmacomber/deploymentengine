@@ -12,7 +12,7 @@ import {
 } from '@de/shared';
 import { prisma } from '../db.js';
 import { posPortal } from '../adapters/posportal/index.js';
-import { fortis } from '../adapters/fortis/index.js';
+import { fortis, deriveTitleModel, nextIndexForModel, type FortisTerminalResult } from '../adapters/fortis/index.js';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
 import { badRequest, notFound, unprocessable } from '../util/errors.js';
@@ -28,6 +28,101 @@ interface CreateContext {
   method: OrderMethod;
   originLinkToken?: string;
   originLinkName?: string;
+}
+
+type OrderRow = NonNullable<Awaited<ReturnType<typeof prisma.order.findUnique>>>;
+type OrderLineRow = { pospBundleId: number; name: string; quantity: number };
+
+/** Which order line a serial belongs to (by position); falls back to the first line. */
+function resolveLineForSerial(lines: OrderLineRow[], serials: string[], serialNumber: string): OrderLineRow | undefined {
+  if (!lines.length) return undefined;
+  const idx = serials.indexOf(serialNumber);
+  if (idx >= 0) {
+    let count = 0;
+    for (const line of lines) {
+      const q = line.quantity || 1;
+      if (count + q > idx) return line;
+      count += q;
+    }
+  }
+  return lines[0];
+}
+
+/**
+ * Create (or reuse) a Fortis Gateway terminal carrying a shipped serial, and record it.
+ * This is the create-on-activate path used by both the manual button and automatic shipment.
+ * Title is "{model} #{N}" with N sequential per Fortis location; the device's
+ * manufacturer/application/CVM come from the ordered bundle (env fallback in the adapter).
+ */
+async function createFortisTerminalForSerial(
+  order: OrderRow,
+  serialNumber: string,
+): Promise<FortisTerminalResult & { model: string }> {
+  const lines = fromJson<OrderLineRow[]>(order.linesJson, []);
+  const serials = fromJson<string[]>(order.serialNumbersJson, []);
+  const line = resolveLineForSerial(lines, serials, serialNumber);
+  const bundle = line ? await prisma.bundle.findUnique({ where: { pospBundleId: line.pospBundleId } }) : null;
+  const model = deriveTitleModel(bundle?.accountingDeviceModel ?? line?.name);
+
+  // The value stored on the Fortis terminal is the last-8 alphanumerics of the device serial
+  // (e.g. "SN-202607-900000-01" -> "90000001"). The full device serial stays on our records.
+  const fortisSerial = fortisLinksValue(serialNumber);
+
+  const adapter = fortis();
+  const locationId = (await adapter.resolveLocationId({ mid: order.merchantMid ?? undefined })) ?? undefined;
+
+  // Reuse a terminal we already recorded for this order+serial (idempotent re-clicks).
+  const prior = await prisma.fortisTerminal.findFirst({ where: { orderId: order.id, serialNumber: fortisSerial } });
+  if (prior?.terminalId) {
+    return { terminalId: prior.terminalId, title: prior.title, serialNumber: fortisSerial, locationId, activated: true, status: 'exists', model };
+  }
+
+  const existing = locationId ? await adapter.listTerminals(locationId) : [];
+  const unitIndex = nextIndexForModel(existing.map((t) => t.title), model);
+  const title = `${model} #${unitIndex}`;
+
+  const result = await adapter.createTerminal({
+    locationId,
+    manufacturerId: bundle?.fortisManufacturerId ?? undefined,
+    applicationId: bundle?.fortisApplicationId ?? undefined,
+    cvmId: bundle?.fortisCvmId ?? undefined,
+    paymentPriority: bundle?.fortisPaymentPriority ?? undefined,
+    title,
+    serialNumber: fortisSerial,
+  });
+
+  await prisma.fortisTerminal.create({
+    data: {
+      orderId: order.id,
+      model,
+      title: result.title,
+      unitIndex,
+      terminalId: result.terminalId,
+      locationId: result.locationId ?? locationId,
+      serialNumber: fortisSerial,
+      status: result.status === 'failed' ? 'failed' : 'activated',
+      error: result.error,
+    },
+  });
+  await prisma.fortisTerminalSync.create({
+    data: {
+      orderId: order.id,
+      serialNumber,
+      linksValue: fortisLinksValue(serialNumber),
+      terminalId: result.terminalId,
+      accountId: result.locationId ?? locationId,
+      activated: result.activated,
+      status: result.status,
+      error: result.error,
+    },
+  });
+  if (result.activated) {
+    await prisma.deployedEquipment.updateMany({
+      where: { serialNumber },
+      data: { fortisTerminalId: result.terminalId, fortisAccountId: result.locationId ?? locationId, fortisActivated: true },
+    });
+  }
+  return { ...result, model };
 }
 
 export const orderService = {
@@ -49,9 +144,6 @@ export const orderService = {
   async get(id: number, opts: { refresh?: boolean } = {}): Promise<Order> {
     const row = await prisma.order.findUnique({ where: { id } });
     if (!row) throw notFound('Order not found');
-    // In live mode, reconcile status/packages/serials from POS Portal (polling — works
-    // without webhooks). When POS Portal has shipped and assigned serials, this also runs the
-    // shipment pipeline (deployed equipment + Fortis Gateway activation).
     if (opts.refresh && config.POSP_MODE === 'live' && row.pospOrderId) {
       const remote = await posPortal().getOrder(row.pospOrderId).catch(() => null);
       if (remote) {
@@ -81,7 +173,6 @@ export const orderService = {
     return toOrder(row);
   },
 
-  /** Get-or-create a stable, unguessable public tracking token for an order. */
   async ensureShareToken(id: number): Promise<string> {
     const row = await prisma.order.findUnique({ where: { id } });
     if (!row) throw notFound('Order not found');
@@ -91,10 +182,6 @@ export const orderService = {
     return token;
   },
 
-  /**
-   * Sanitized order summary for a public tracking link. Deliberately excludes ALL sensitive
-   * merchant data (MID, DBA, address, phone, email) — only fulfillment progress is exposed.
-   */
   async publicTrack(token: string): Promise<{
     reference?: string;
     status: string;
@@ -121,19 +208,16 @@ export const orderService = {
   },
 
   async create(input: CreateOrderInput, ctx: CreateContext): Promise<Order> {
-    // 1. Validate the shipping address (required).
     const validation = await posPortal().validateAddress(input.shippingAddress);
     if (!validation.valid) {
       throw unprocessable('Shipping address failed validation', { shippingAddress: validation.messages });
     }
     const shippingAddress = validation.normalized ?? input.shippingAddress;
 
-    // 2. Resolve the merchant.
     const merchant = input.merchantId
       ? await merchantService.get(input.merchantId)
       : await merchantService.resolveOrCreate(input.merchant!);
 
-    // 3. Build order lines from the cart against known bundles.
     const bundleRows = await prisma.bundle.findMany({
       where: { pospBundleId: { in: input.cart.map((c) => c.pospBundleId) } },
     });
@@ -150,7 +234,6 @@ export const orderService = {
       };
     });
 
-    // 3b. Expand each bundle into its POS Portal component products (real order line items).
     const productLines: Array<{ productId: number; quantity: number }> = [];
     for (const c of input.cart) {
       const b = byId.get(c.pospBundleId);
@@ -161,7 +244,6 @@ export const orderService = {
       }
     }
 
-    // 4. Apply an approved price exception (free/discounted device) if attached.
     if (input.priceExceptionId) {
       const ex = await exceptionService.assertApproved(input.priceExceptionId, ExceptionType.PRICE_EXCEPTION);
       const target = ex.bundlePospId ? lines.find((l) => l.pospBundleId === ex.bundlePospId) : lines[0];
@@ -171,7 +253,6 @@ export const orderService = {
       }
     }
 
-    // 5. Resolve shipping method label from a quote.
     let shippingMethodLabel: string | undefined;
     if (input.shippingMethodId) {
       const totalQty = input.cart.reduce((s, l) => s + (l.quantity || 0), 0);
@@ -179,11 +260,7 @@ export const orderService = {
       shippingMethodLabel = m ? `${m.name} ($${m.rate})` : undefined;
     }
 
-    // 6. Create the order in POS Portal (DRAFT -> submitted), then persist locally.
     const reference = orderReference();
-    // Attempt to submit to POS Portal. The exact create-order payload schema is still being
-    // finalized against the authed spec (DESIGN.md §5); if the live call fails we persist the
-    // order locally so the flow completes, and flag it for later reconciliation.
     let posp: { id?: number; reference?: string; status: string; cancellable: boolean };
     let syncStatus = 'synced';
     let syncError: string | undefined;
@@ -248,11 +325,6 @@ export const orderService = {
     return toOrder(updated);
   },
 
-  /**
-   * Shared fulfillment: attach tracking + serials, create deployed-equipment records, and
-   * sync each serial to a Fortis terminal. Called by the dev mock-ship tool and by the
-   * POS Portal shipment webhook.
-   */
   async processShipment(
     orderId: number,
     shipment: { trackingNumber: string; carrier: string; serialNumbers: string[]; status?: string },
@@ -282,19 +354,12 @@ export const orderService = {
       },
     });
 
-    // Look up the merchant once for Fortis Gateway account matching.
-    const merchant = await prisma.merchant.findUnique({ where: { id: row.merchantId } });
+    // Reflect the just-shipped serials on the in-memory row so per-serial line mapping is correct.
+    row.serialNumbersJson = toJson(shipment.serialNumbers);
 
-    // Create deployed-equipment + activate in Fortis Gateway per serial (idempotent by serial).
     for (const serial of shipment.serialNumbers) {
       const already = await prisma.deployedEquipment.findFirst({ where: { serialNumber: serial } });
       if (already) continue;
-      const sync = await fortis().activateDevice({
-        serialNumber: serial,
-        merchantMid: row.merchantMid ?? undefined,
-        merchantName: row.merchantDba ?? merchant?.dbaName ?? undefined,
-        merchantEmail: merchant?.email ?? undefined,
-      });
       await prisma.deployedEquipment.create({
         data: {
           serialNumber: serial,
@@ -305,31 +370,19 @@ export const orderService = {
           orderId,
           status: DeployedStatus.ACTIVE,
           deployedAt: new Date(),
-          fortisTerminalId: sync.terminalId,
-          fortisAccountId: sync.accountId,
-          fortisActivated: sync.activated,
           application: bundle?.application,
           encryption: bundle?.encryption,
         },
       });
-      await prisma.fortisTerminalSync.create({
-        data: {
-          orderId,
-          serialNumber: serial,
-          linksValue: sync.linksValue,
-          terminalId: sync.terminalId,
-          accountId: sync.accountId,
-          activated: sync.activated,
-          status: sync.status,
-          error: sync.error,
-        },
-      });
+      // Create the Fortis Gateway terminal for this serial. Best-effort: never fail a shipment.
+      await createFortisTerminalForSerial(row, serial).catch((err) =>
+        logger.error({ err: (err as Error).message, serial }, 'Fortis terminal creation failed during shipment'),
+      );
     }
 
     return this.get(orderId);
   },
 
-  /** Dev/mock only: simulate a shipment for an order. */
   async simulateShip(id: number, serialNumbers?: string[]): Promise<Order> {
     const row = await prisma.order.findUnique({ where: { id } });
     if (!row) throw notFound('Order not found');
@@ -339,7 +392,6 @@ export const orderService = {
       shipment = await adapter.mockShip(row.pospOrderId, serialNumbers);
     }
     if (!shipment) {
-      // Fallback: fabricate a shipment even without an adapter round-trip.
       const qty = fromJson<Array<{ quantity: number }>>(row.linesJson, []).reduce((s, l) => s + (l.quantity || 0), 0) || 1;
       const now = new Date();
       shipment = {
@@ -351,7 +403,6 @@ export const orderService = {
     return this.processShipment(id, shipment);
   },
 
-  /** Advance a shipped order to delivered (dev tool + webhook Delivery Confirmed). */
   async markDelivered(id: number, signedBy?: string): Promise<Order> {
     const row = await prisma.order.findUnique({ where: { id } });
     if (!row) throw notFound('Order not found');
@@ -364,5 +415,38 @@ export const orderService = {
       data: { status: OrderStatus.DELIVERED, packagesJson: toJson(updatedPackages) },
     });
     return toOrder(updated);
+  },
+
+  async activateFortisSerial(
+    orderId: number,
+    serialNumber?: string,
+  ): Promise<{
+    serialNumber: string;
+    title: string;
+    terminalId?: string;
+    locationId?: string;
+    activated: boolean;
+    status: string;
+    error?: string;
+  }> {
+    const serial = serialNumber?.trim();
+    if (!serial) throw badRequest('serialNumber is required');
+
+    const row = await prisma.order.findUnique({ where: { id: orderId } });
+    if (!row) throw notFound('Order not found');
+
+    // Create the Fortis Gateway terminal for this serial (create-on-activate). The serial need
+    // not be one of the order's shipped serials — an operator may enter it manually here.
+    const result = await createFortisTerminalForSerial(row, serial);
+
+    return {
+      serialNumber: result.serialNumber,
+      title: result.title,
+      terminalId: result.terminalId,
+      locationId: result.locationId,
+      activated: result.activated,
+      status: result.status,
+      error: result.error,
+    };
   },
 };

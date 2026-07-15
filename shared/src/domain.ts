@@ -84,6 +84,11 @@ export interface Bundle {
   accountingUnitPrice?: number;
   /** Device manufacturer/brand (e.g. Dejavoo, PAX, Ingenico). Explicit override or derived. */
   brand?: string;
+  // Fortis Gateway device IDs used when creating a terminal for this device (overrides env fallback).
+  fortisManufacturerId?: string;
+  fortisApplicationId?: string;
+  fortisCvmId?: string;
+  fortisPaymentPriority?: string;
   updatedAt?: string;
 }
 

@@ -65,7 +65,10 @@ const envSchema = z
     FORTIS_LOCATION_ID: z.string().optional(),
     FORTIS_TERMINAL_APPLICATION_ID: z.string().optional(),
     FORTIS_TERMINAL_MANUFACTURER_ID: z.string().optional(),
-    FORTIS_LINK_FIELD: z.string().default('terminal_api_id'),
+    FORTIS_TERMINAL_CVM_ID: z.string().optional(),
+    // When true (and the API user has the "update terminals" privilege), switch from
+    // create-on-activate to the placeholder-on-order + PUT-update-on-activate flow.
+    FORTIS_UPDATE_MODE: bool.default(false),
 
     // Inbound webhooks are OFF by default: this app is intentionally polling-only (no public
     // ingress) for security. Flip to true ONLY if an AM provisions POS Portal webhooks AND the

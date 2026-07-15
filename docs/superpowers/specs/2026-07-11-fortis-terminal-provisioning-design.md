@@ -152,6 +152,22 @@ Keep `FortisActivateModal`. Update the success toast to show the terminal title,
    `TBD` placeholder suggests yes.
 3. Terminal `serial_number` uniqueness per location (drives the `PENDING-…` scheme).
 
+## 7a. Implementation reality (spike outcome — 2026-07-11)
+
+The live spike revealed the API user can **create + read** terminals but **not update or delete**
+(`PUT`/`DELETE` → 403 "You do not have the privilege"). This blocks the placeholder-then-update
+design, so the shipped implementation is **create-on-activate**:
+
+- **Fortis Activate** (and automatic shipment) creates the terminal in one `POST` carrying the real
+  serial, titled `{model} #{N}` (N sequential per location). No placeholder, no `PUT`.
+- **Idempotent:** a `GET` first reuses an existing terminal with the same serial (status `exists`),
+  and a local `FortisTerminal` record is reused on re-clicks.
+- **Upgrade path preserved:** `FORTIS_UPDATE_MODE` + `updateTerminalSerial()` are in place. Once the
+  API user is granted the "update terminals" privilege, flipping the flag enables the original
+  placeholder-on-order + `PUT`-update flow.
+- Verified end-to-end against `api.sandbox.zeamster.com`: created `VP3300 #2`, confirmed in the
+  portal, idempotent re-activation returned `exists`.
+
 ## 8. Out of scope (YAGNI)
 
 - MID/email→location matching (single configured sandbox location is sufficient now).

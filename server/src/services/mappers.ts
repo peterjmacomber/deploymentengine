@@ -60,6 +60,10 @@ export function toBundle(row: BundleRow): Bundle {
     accountingDeviceModel: row.accountingDeviceModel ?? undefined,
     accountingUnitPrice: row.accountingUnitPrice ?? undefined,
     brand: row.brand ?? brandFromText(row.accountingDeviceModel, row.displayName),
+    fortisManufacturerId: row.fortisManufacturerId ?? undefined,
+    fortisApplicationId: row.fortisApplicationId ?? undefined,
+    fortisCvmId: row.fortisCvmId ?? undefined,
+    fortisPaymentPriority: row.fortisPaymentPriority ?? undefined,
     updatedAt: iso(row.updatedAt),
   };
 }
