@@ -84,6 +84,16 @@ export interface PortalIssueResult {
   message: string;
 }
 
+export interface FortisActivationResult {
+  serialNumber: string;
+  title: string;
+  terminalId?: string;
+  locationId?: string;
+  activated: boolean;
+  status: string;
+  error?: string;
+}
+
 const TOKEN_KEY = 'de_token';
 
 export const tokenStore = {
@@ -174,6 +184,8 @@ export const api = {
     cancel: (id: number) => request<{ order: Order }>('POST', `/api/v1/orders/${id}/cancel`),
     activity: (id: number) => request<{ entries: AuditEntry[] }>('GET', `/api/v1/orders/${id}/activity`),
     shareToken: (id: number) => request<{ token: string }>('POST', `/api/v1/orders/${id}/share-token`),
+    activateFortis: (id: number, serialNumber: string) =>
+      request<{ result: FortisActivationResult }>('POST', `/api/v1/orders/${id}/activate-fortis`, { serialNumber }),
   },
   shipping: {
     validateAddress: (address: unknown) => request<AddressValidationResult>('POST', '/api/v1/shipping/validate-address', address),

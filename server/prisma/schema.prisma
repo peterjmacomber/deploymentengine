@@ -75,6 +75,12 @@ model Bundle {
   accountingUnitPrice   Float?
   brand                 String?
   pospSnapshotJson      String?
+  // Fortis Gateway device config — which manufacturer/application/CVM to stamp on a terminal
+  // created for this device. Overrides the FORTIS_TERMINAL_* env fallback when set.
+  fortisManufacturerId  String?
+  fortisApplicationId   String?
+  fortisCvmId           String?
+  fortisPaymentPriority String? // "Credit" | "Debit" -> terminal payment_type_priority
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
@@ -142,9 +148,10 @@ model Order {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  merchant  Merchant             @relation(fields: [merchantId], references: [id])
-  deployed  DeployedEquipment[]
-  terminals FortisTerminalSync[]
+  merchant        Merchant             @relation(fields: [merchantId], references: [id])
+  deployed        DeployedEquipment[]
+  terminals       FortisTerminalSync[]
+  terminalRecords FortisTerminal[]
 
   @@index([status])
   @@index([merchantId])
@@ -248,6 +255,29 @@ model FortisTerminalSync {
   order Order @relation(fields: [orderId], references: [id])
 
   @@index([orderId])
+}
+
+// A Fortis Gateway terminal this app created for a shipped device. One row per terminal.
+// Maps an order+unit to its Fortis terminal id so activation is precise (and, in update-mode,
+// so a placeholder can later be updated in place).
+model FortisTerminal {
+  id           Int      @id @default(autoincrement())
+  orderId      Int
+  model        String // title model token, e.g. "VP3300"
+  title        String // full title, e.g. "VP3300 #1"
+  unitIndex    Int      @default(1)
+  terminalId   String? // Fortis Gateway terminal id
+  locationId   String?
+  serialNumber String? // null while a placeholder is pending a real serial (update-mode)
+  status       String   @default("placeholder") // placeholder | activated | failed
+  error        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([terminalId])
 }
 
 model DeploymentLink {

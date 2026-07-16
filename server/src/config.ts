@@ -74,6 +74,9 @@ const envSchema = z
     // Admin-configurable per install via the Fortis Gateway page; this is only the seed default.
     FORTIS_TERMINAL_MANUFACTURER_CODE: z.string().default('2'),
     FORTIS_LINK_FIELD: z.string().default('terminal_api_id'),
+    // When true (and the API user has the "update terminals" privilege), switch from
+    // create-on-activate to the placeholder-on-order + PUT-update-on-activate flow.
+    FORTIS_UPDATE_MODE: bool.default(false),
 
     // Inbound webhooks are OFF by default: this app is intentionally polling-only (no public
     // ingress) for security. Flip to true ONLY if an AM provisions POS Portal webhooks AND the

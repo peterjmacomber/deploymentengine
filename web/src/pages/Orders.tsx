@@ -10,6 +10,7 @@ import { useTableControls } from '../components/TableControls';
 import { useVisibleColumns } from '../components/ColumnPicker';
 import { SerialLink } from '../components/SerialLink';
 import { ReturnSwapModal } from '../components/ReturnSwapModal';
+import { FortisActivateModal } from '../components/FortisActivateModal';
 import { api } from '../api/client';
 import { useAuth } from '../stores/authStore';
 import { date, money, titleCase } from '../lib/format';
@@ -40,6 +41,7 @@ export function Orders() {
   const can = useAuth((s) => s.can);
   const [phase, setPhase] = useState('all');
   const [swapOrder, setSwapOrder] = useState<Order | null>(null);
+  const [fortisOrder, setFortisOrder] = useState<Order | null>(null);
 
   // One fetch; phases + controls filter client-side. Auto-refreshes so poller updates surface.
   const { data, isLoading } = useQuery({
@@ -101,6 +103,18 @@ export function Orders() {
     { key: 'status', label: 'Status', header: 'Status', sort: (o) => o.status, cell: (o) => <StatusBadge status={o.status} /> },
     { key: 'placed', label: 'Placed', header: 'Placed', sort: (o) => o.createdAt, cell: (o) => <span className="small">{date(o.createdAt)}</span> },
     { key: 'shipDate', label: 'Ship date', header: 'Shipped', sort: (o) => o.shipDate ?? '', cell: (o) => <span className="small">{date(o.shipDate)}</span> },
+    ...(can(Permission.ORDER_WRITE)
+      ? [{
+          header: '',
+          cell: (o: Order) => (
+            <div className="row" style={{ gap: 4 }}>
+              <button className="btn sm" onClick={(e) => { e.stopPropagation(); setFortisOrder(o); }} style={{ backgroundColor: '#2563eb', color: 'white' }}>
+                Fortis Activate
+              </button>
+            </div>
+          ),
+        }]
+      : []),
     ...(can(Permission.RETURN_WRITE)
       ? [{ header: '', cell: (o: Order) => <button className="btn sm" onClick={(e) => { e.stopPropagation(); setSwapOrder(o); }}>Return/Swap</button> }]
       : []),
@@ -143,6 +157,7 @@ export function Orders() {
         columns={columns}
       />
       {swapOrder && <ReturnSwapModal order={swapOrder} onClose={() => setSwapOrder(null)} />}
+      {fortisOrder && <FortisActivateModal order={fortisOrder} onClose={() => setFortisOrder(null)} />}
     </AppShell>
   );
 }
