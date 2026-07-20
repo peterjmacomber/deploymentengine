@@ -27,6 +27,8 @@ import { apiKeysRouter } from './routes/apiKeys.js';
 import { auditRouter } from './routes/audit.js';
 import { devRouter } from './routes/dev.js';
 import { fortisRouter } from './routes/fortis.js';
+import { systemRouter } from './routes/system.js';
+import { terminalModelsRouter } from './routes/terminalModels.js';
 import { portalRouter } from './routes/portal.js';
 import { reportedIssuesRouter } from './routes/reportedIssues.js';
 import { publicRouter } from './routes/public.js';
@@ -71,6 +73,8 @@ export function buildApp(): Express {
   v1.use('/api-keys', apiKeysRouter);
   v1.use('/audit', auditRouter);
   v1.use('/fortis', fortisRouter);
+  v1.use('/system', systemRouter);
+  v1.use('/terminal-models', terminalModelsRouter);
   v1.use('/portal', portalRouter); // merchant self-service (PORTAL_USE + own-merchant scope)
   v1.use('/reported-issues', reportedIssuesRouter); // management view of portal issue reports
   v1.use('/dev', devRouter);

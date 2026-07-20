@@ -7,18 +7,15 @@ import { settingsService } from '../../services/settingsService.js';
 /**
  * Fortis Gateway (Zeamster) client.
  *
- * STAGING NOTE — unresolved host/version contradiction between two independently-verified
- * findings, needs a live sandbox check before this goes to `main`:
- *   - D8 (this app, admin Fortis Gateway page): FORTIS_BASE_URL=https://api.sandbox.fortis.tech,
- *     `/v1/locations` + `/v1/terminal-manufacturers|applications|cvms` confirmed working
- *     (8,500+ location search, terminal-defaults dropdowns).
- *   - Andy's terminal-provisioning spike (2026-07-11): found `api.sandbox.fortis.tech` 403s on
- *     every call, and the real host is `https://api.sandbox.zeamster.com` on `/v2/terminals`
- *     (wrapped `{ terminal: {...} }` bodies, `serial_number` not `terminal_api_id`).
- * Both can't be fully right against the same account. Location search / terminal-options below
- * still call `/v1` on `FORTIS_BASE_URL`; the newer terminal create/list/update calls use
- * `/v2` per Andy's verified contract. Re-verify both against the sandbox during staging and
- * collapse this to one consistent base + version.
+ * Two DIFFERENT hosts, confirmed live against the sandbox 2026-07-16 (both required — not a
+ * config typo):
+ *   - `FORTIS_BASE_URL` (https://api.sandbox.fortis.tech), `/v1` — merchant/location search +
+ *     terminal-defaults dropdowns (admin Fortis Gateway page, D8). Confirmed: `/v1/locations`
+ *     200; `/v2/terminals` 403 on this host.
+ *   - `FORTIS_TERMINALS_BASE_URL` (https://api.sandbox.zeamster.com), `/v2` — terminal
+ *     provisioning (create/list/update), per Andy Lam's 2026-07-11 spike (wrapped
+ *     `{ terminal: {...} }` bodies, `serial_number` not `terminal_api_id`). Confirmed:
+ *     `/v2/terminals` 200; `/v1/locations` 404 on this host.
  */
 
 export interface FortisContext {
@@ -97,6 +94,10 @@ export interface FortisAdapter {
   testConnection(): Promise<FortisConnectionResult>;
   /** Search Fortis accounts (locations) by name / account number — the shared key for linking. */
   searchLocations(query: string, limit?: number): Promise<FortisLocation[]>;
+  /** Full paginated pull of every location — feeds the local FortisLocationCache sync job. */
+  listAllLocations(): Promise<FortisLocation[]>;
+  /** Fetch one location by id (e.g. to display its real name for a pre-linked account). */
+  getLocation(id: string): Promise<FortisLocation | null>;
   /** Reference lists (manufacturer/application/CVM) for the terminal-defaults dropdowns. */
   listTerminalOptions(): Promise<FortisTerminalOptions>;
   /** Create a terminal (equipment) record: full serial → serial_number, last-8 → terminal_api_id. */
@@ -169,9 +170,9 @@ class LiveFortisAdapter implements FortisAdapter {
     return h;
   }
 
-  /** Base + version prefix for the newer terminal-provisioning calls (verified /v2 by Andy). */
+  /** Base + version prefix for terminal-provisioning calls — a different host than FORTIS_BASE_URL. */
   private baseV2(): string {
-    return `${config.FORTIS_BASE_URL!.replace(/\/+$/, '')}/v2`;
+    return `${config.FORTIS_TERMINALS_BASE_URL.replace(/\/+$/, '')}/v2`;
   }
 
   private unwrap(data: unknown): Record<string, unknown> {
@@ -222,6 +223,51 @@ class LiveFortisAdapter implements FortisAdapter {
       logger.warn({ err: (err as Error).message, query }, 'Fortis location search failed');
       return [];
     }
+  }
+
+  async getLocation(id: string): Promise<FortisLocation | null> {
+    const base = config.FORTIS_BASE_URL;
+    if (!base || !config.FORTIS_USER_ID) return null;
+    try {
+      const res = await axios.get(`${base}/v1/locations/${id}`, { headers: this.headers(), timeout: 20_000, validateStatus: () => true });
+      if (res.status < 200 || res.status >= 300) return null;
+      const l = res.data?.data ?? res.data;
+      if (!l?.id) return null;
+      return { id: String(l.id), name: l.name ?? '', accountNumber: l.account_number ?? null, locationType: l.location_type ?? undefined };
+    } catch (err) {
+      logger.warn({ err: (err as Error).message, id }, 'Fortis getLocation failed');
+      return null;
+    }
+  }
+
+  async listAllLocations(): Promise<FortisLocation[]> {
+    const base = config.FORTIS_BASE_URL;
+    if (!base || !config.FORTIS_USER_ID) return [];
+    const out: FortisLocation[] = [];
+    const pageSize = 200;
+    let page = 1;
+    // Hard cap so a runaway pagination bug can't loop forever against the live sandbox.
+    for (; page <= 100; page += 1) {
+      let rows: any[] = [];
+      try {
+        const res = await axios.get(`${base}/v1/locations`, {
+          headers: this.headers(),
+          params: { 'page[number]': page, 'page[size]': pageSize },
+          timeout: 30_000,
+          validateStatus: () => true,
+        });
+        if (res.status < 200 || res.status >= 300) break;
+        rows = res.data?.list ?? res.data?.data ?? [];
+      } catch (err) {
+        logger.warn({ err: (err as Error).message, page }, 'Fortis listAllLocations page failed');
+        break;
+      }
+      if (!rows.length) break;
+      for (const l of rows) out.push({ id: String(l.id), name: l.name ?? '', accountNumber: l.account_number ?? null, locationType: l.location_type ?? undefined });
+      if (rows.length < pageSize) break;
+    }
+    logger.info({ count: out.length, pages: page }, 'Fortis listAllLocations complete');
+    return out;
   }
 
   async listTerminalOptions(): Promise<FortisTerminalOptions> {
@@ -325,7 +371,7 @@ class LiveFortisAdapter implements FortisAdapter {
     if (!manufacturerId || !applicationId) {
       return {
         terminalId: undefined, title: ctx.title, serialNumber: ctx.serialNumber, locationId, activated: false, status: 'failed',
-        error: 'Missing Fortis manufacturer/application id for this device (set them on the bundle or via FORTIS_TERMINAL_* env)',
+        error: 'Missing Fortis manufacturer/application id for this device (set them on its TerminalModel or via FORTIS_TERMINAL_* env)',
       };
     }
 

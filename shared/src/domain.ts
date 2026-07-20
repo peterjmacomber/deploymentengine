@@ -87,11 +87,29 @@ export interface Bundle {
   accountingUnitPrice?: number;
   /** Device manufacturer/brand (e.g. Dejavoo, PAX, Ingenico). Explicit override or derived. */
   brand?: string;
-  // Fortis Gateway device IDs used when creating a terminal for this device (overrides env fallback).
+  // Fortis Gateway linkage lives on TerminalModel (per-device catalog, not per-bundle) — many
+  // bundles share one physical device. See TerminalModel below.
+  terminalModelId?: number;
+  terminalModel?: TerminalModel;
+  updatedAt?: string;
+}
+
+/** Catalog of physical terminal/device models (e.g. "PAX A920 Pro") — one row shared by every
+ *  Bundle that includes it. Carries Fortis Gateway linkage for BOTH environments, since sandbox
+ *  and production are different Fortis accounts with different ids for the same device. */
+export interface TerminalModel {
+  id: number;
+  name: string;
+  manufacturer?: string;
+  active: boolean;
   fortisManufacturerId?: string;
   fortisApplicationId?: string;
   fortisCvmId?: string;
   fortisPaymentPriority?: string;
+  fortisManufacturerIdProd?: string;
+  fortisApplicationIdProd?: string;
+  fortisCvmIdProd?: string;
+  fortisPaymentPriorityProd?: string;
   updatedAt?: string;
 }
 

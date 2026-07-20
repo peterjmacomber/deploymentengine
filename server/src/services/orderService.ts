@@ -61,7 +61,7 @@ async function createFortisTerminalForSerial(
   const lines = fromJson<OrderLineRow[]>(order.linesJson, []);
   const serials = fromJson<string[]>(order.serialNumbersJson, []);
   const line = resolveLineForSerial(lines, serials, serialNumber);
-  const bundle = line ? await prisma.bundle.findUnique({ where: { pospBundleId: line.pospBundleId } }) : null;
+  const bundle = line ? await prisma.bundle.findUnique({ where: { pospBundleId: line.pospBundleId }, include: { terminalModel: true } }) : null;
   const model = deriveTitleModel(bundle?.accountingDeviceModel ?? line?.name);
 
   // The value stored on the Fortis terminal is the last-8 alphanumerics of the device serial
@@ -84,12 +84,19 @@ async function createFortisTerminalForSerial(
   const unitIndex = nextIndexForModel(existing.map((t) => t.title), model);
   const title = `${model} #${unitIndex}`;
 
+  // Fortis linkage lives on the device's TerminalModel (per-device catalog), not the bundle
+  // itself — many bundles share one physical device. Sandbox and production are different
+  // Fortis accounts with different manufacturer/application/CVM ids for the same device
+  // (confirmed live 2026-07-20) — FORTIS_ENV picks which set of TerminalModel columns applies.
+  // Flip it together with FORTIS_BASE_URL/credentials.
+  const tm = bundle?.terminalModel;
+  const isProd = config.FORTIS_ENV === 'production';
   const result = await adapter.createTerminal({
     locationId,
-    manufacturerId: bundle?.fortisManufacturerId ?? undefined,
-    applicationId: bundle?.fortisApplicationId ?? undefined,
-    cvmId: bundle?.fortisCvmId ?? undefined,
-    paymentPriority: bundle?.fortisPaymentPriority ?? undefined,
+    manufacturerId: (isProd ? tm?.fortisManufacturerIdProd : tm?.fortisManufacturerId) ?? undefined,
+    applicationId: (isProd ? tm?.fortisApplicationIdProd : tm?.fortisApplicationId) ?? undefined,
+    cvmId: (isProd ? tm?.fortisCvmIdProd : tm?.fortisCvmId) ?? undefined,
+    paymentPriority: (isProd ? tm?.fortisPaymentPriorityProd : tm?.fortisPaymentPriority) ?? undefined,
     title,
     serialNumber: fortisSerial,
   });

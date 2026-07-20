@@ -21,7 +21,7 @@ export function OrderForm() {
   const [methodId, setMethodId] = useState<number | undefined>();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [placed, setPlaced] = useState<{ id: number; reference?: string; redirectUrl?: string } | null>(null);
+  const [placed, setPlaced] = useState<{ id: number; reference?: string; redirectUrl?: string; status: string; trackingNumber?: string; carrier?: string; serialNumbers: string[] } | null>(null);
 
   useEffect(() => { if (!apply) navigate('/apply'); }, [apply, navigate]);
 
@@ -40,14 +40,24 @@ export function OrderForm() {
     setBusy(true);
     setError('');
     try {
-      const res = await publicApi.createOrder({
-        applicant: apply.applicant,
+      const res = await publicApi.applyCreateOrder({
+        merchantId: apply.merchantId,
+        mid: apply.applicant.mid,
         shippingAddress: apply.shippingAddress,
         cart: [{ pospBundleId: selected, quantity: qty }],
         shippingMethodId: methodId,
         returnUrl: apply.returnUrl,
       });
-      setPlaced({ id: res.order.id, reference: res.order.reference, redirectUrl: res.redirectUrl });
+      const pkg = res.order.packages[0];
+      setPlaced({
+        id: res.order.id,
+        reference: res.order.reference,
+        redirectUrl: res.redirectUrl,
+        status: res.order.status,
+        trackingNumber: pkg?.trackingNumber,
+        carrier: pkg?.carrier,
+        serialNumbers: res.order.serialNumbers,
+      });
     } catch (e) {
       setError(e instanceof ApiError ? (e.detail ?? e.message) : 'Could not place order');
     } finally {
@@ -63,6 +73,12 @@ export function OrderForm() {
         <div className="card">
           <h2>✓ Thank you, {apply.applicant.dbaName}!</h2>
           <p>Your equipment order <strong className="mono">{placed.reference}</strong> has been submitted and is visible to the FortisPay deployment team.</p>
+          {placed.trackingNumber && (
+            <p className="small muted">
+              Status: <strong>{placed.status}</strong> · {placed.carrier} tracking <span className="mono">{placed.trackingNumber}</span>
+              {placed.serialNumbers.length > 0 && <> · serial <span className="mono">{placed.serialNumbers.join(', ')}</span></>}
+            </p>
+          )}
           <div className="row" style={{ marginTop: 12 }}>
             <button className="btn primary" onClick={() => navigate(`/track/${placed.id}`)}>Track my order →</button>
             {placed.redirectUrl && <a className="btn" href={placed.redirectUrl}>Return to application</a>}

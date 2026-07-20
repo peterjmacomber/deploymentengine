@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Merchant } from '@de/shared';
 import { AppShell } from '../components/AppShell';
 import { Badge, Card, Loading } from '../components/ui';
@@ -26,13 +26,20 @@ export function FortisGateway() {
     onError: (e) => setTestResult({ ok: false, detail: e instanceof ApiError ? (e.detail ?? e.message) : 'Test failed' }),
   });
 
-  // --- search Fortis accounts + link to a Deployment Engine merchant ---
+  // --- search Fortis accounts (local cache — instant, type-ahead) + link to a merchant ---
   const [q, setQ] = useState('');
-  const [results, setResults] = useState<FortisLoc[] | null>(null);
-  const search = useMutation({
-    mutationFn: () => api.fortis.search(q.trim()),
-    onSuccess: (r) => setResults(r.locations),
-    onError: (e) => toast.push(e instanceof ApiError ? (e.detail ?? e.message) : 'Search failed', 'error'),
+  const search = useQuery({
+    queryKey: ['fortis-search', q.trim()],
+    queryFn: () => api.fortis.search(q.trim()),
+    enabled: q.trim().length > 0,
+  });
+  const results = search.data?.locations ?? null;
+  const syncStatus = useQuery({ queryKey: ['fortis-location-sync-status'], queryFn: api.fortis.locationSyncStatus });
+  const qc = useQueryClient();
+  const syncNow = useMutation({
+    mutationFn: api.fortis.syncLocations,
+    onSuccess: (r) => { toast.push(`Synced ${r.count} Fortis locations`, 'success'); qc.invalidateQueries({ queryKey: ['fortis-location-sync-status'] }); qc.invalidateQueries({ queryKey: ['fortis-search'] }); },
+    onError: (e) => toast.push(e instanceof ApiError ? (e.detail ?? e.message) : 'Sync failed', 'error'),
   });
   const [picked, setPicked] = useState<FortisLoc | null>(null);
 
@@ -98,18 +105,25 @@ export function FortisGateway() {
 
           <Card style={{ marginBottom: 16 }}>
             <h3 style={{ marginTop: 0 }}>Link a Fortis account to a merchant</h3>
-            <p className="small muted" style={{ marginTop: 0 }}>Search the gateway by account name or number, pick the account, then link it to a Deployment Engine merchant. (Fortis has no MID field, so accounts are matched by name/account number.)</p>
-            <div className="row" style={{ gap: 8 }}>
-              <input placeholder="Search Fortis accounts (name or account #)…" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && q.trim()) search.mutate(); }} style={{ flex: 1, padding: '8px 11px', borderRadius: 8, border: '1px solid var(--border)' }} />
-              <button className="btn" disabled={!q.trim() || search.isPending} onClick={() => search.mutate()}>{search.isPending ? 'Searching…' : 'Search'}</button>
+            <p className="small muted" style={{ marginTop: 0 }}>Search by account name or number as you type — this searches a local cache of Fortis locations, not a live call. (Fortis has no MID field, so accounts are matched by name/account number.)</p>
+            <div className="row between small muted" style={{ marginBottom: 8 }}>
+              <span>
+                {syncStatus.data ? `${syncStatus.data.count.toLocaleString()} locations cached` : 'Loading cache status…'}
+                {syncStatus.data?.syncedAt ? ` · last synced ${new Date(syncStatus.data.syncedAt).toLocaleString()}` : ' · never synced'}
+              </span>
+              <button className="btn sm" disabled={syncNow.isPending} onClick={() => syncNow.mutate()}>{syncNow.isPending ? 'Syncing…' : 'Sync now'}</button>
             </div>
-            {results && (
+            <div className="row" style={{ gap: 8 }}>
+              <input placeholder="Search Fortis accounts (name or account #)…" value={q} onChange={(e) => setQ(e.target.value)} style={{ flex: 1, padding: '8px 11px', borderRadius: 8, border: '1px solid var(--border)' }} />
+            </div>
+            {q.trim() && (
               <div className="table-wrap" style={{ marginTop: 10, maxHeight: 240, overflow: 'auto' }}>
                 <table className="mini-table">
                   <thead><tr><th>Account</th><th>Account #</th><th>Type</th><th></th></tr></thead>
                   <tbody>
-                    {results.length === 0 && <tr><td colSpan={4} className="small muted">No matches in the returned set.</td></tr>}
-                    {results.map((l) => (
+                    {search.isLoading && <tr><td colSpan={4} className="small muted">Searching…</td></tr>}
+                    {!search.isLoading && (!results || results.length === 0) && <tr><td colSpan={4} className="small muted">No matches in the cache.</td></tr>}
+                    {(results ?? []).map((l) => (
                       <tr key={l.id} style={{ background: picked?.id === l.id ? 'var(--accent-soft)' : undefined }}>
                         <td>{l.name}</td>
                         <td className="mono small">{l.accountNumber ?? '—'}</td>

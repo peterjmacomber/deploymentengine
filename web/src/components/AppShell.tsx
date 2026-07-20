@@ -36,6 +36,7 @@ const GROUPS: { group: string; items: NavDef[] }[] = [
       { to: '/bundles', label: 'Bundles & Pricing', perm: Permission.BUNDLE_WRITE },
       { to: '/api-keys', label: 'API Keys', perm: Permission.APIKEY_MANAGE },
       { to: '/fortis', label: 'Fortis Gateway', perm: Permission.DEV_TOOLS },
+      { to: '/system-status', label: 'System Status', perm: Permission.DEV_TOOLS },
       { to: '/audit', label: 'Audit Log', perm: Permission.AUDIT_READ },
     ],
   },

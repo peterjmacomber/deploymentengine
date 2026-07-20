@@ -75,16 +75,58 @@ model Bundle {
   accountingUnitPrice   Float?
   brand                 String?
   pospSnapshotJson      String?
-  // Fortis Gateway device config — which manufacturer/application/CVM to stamp on a terminal
-  // created for this device. Overrides the FORTIS_TERMINAL_* env fallback when set.
-  fortisManufacturerId  String?
-  fortisApplicationId   String?
-  fortisCvmId           String?
-  fortisPaymentPriority String? // "Credit" | "Debit" -> terminal payment_type_priority
+  // Fortis Gateway linkage lives on TerminalModel (per-device catalog), not per-bundle — many
+  // bundles share one physical device, and this lets a future bare-terminal order (no bundle)
+  // reuse the same linkage. See createFortisTerminalForSerial (orderService.ts).
+  terminalModelId       Int?
+  terminalModel         TerminalModel? @relation(fields: [terminalModelId], references: [id])
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
   @@index([active])
+  @@index([terminalModelId])
+}
+
+// Catalog of physical terminal/device models — one row per device (e.g. "PAX A920 Pro"), shared
+// by every Bundle that includes it. Holds Fortis Gateway linkage for BOTH environments (sandbox
+// and production are different Fortis accounts with different application/CVM ids for the same
+// device — confirmed live 2026-07-20). Also the future anchor for ordering a bare terminal
+// (replacement/accessory-only) without a full bundle.
+model TerminalModel {
+  id                        Int      @id @default(autoincrement())
+  name                      String   @unique // matches Bundle.accountingDeviceModel, e.g. "PAX A920 Pro"
+  manufacturer              String?  // display brand, e.g. "PAX"
+  active                    Boolean  @default(true)
+  fortisManufacturerId      String?
+  fortisApplicationId       String?
+  fortisCvmId               String?
+  fortisPaymentPriority     String? // "Credit" | "Debit" -> terminal payment_type_priority
+  fortisManufacturerIdProd  String?
+  fortisApplicationIdProd   String?
+  fortisCvmIdProd           String?
+  fortisPaymentPriorityProd String?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  bundles Bundle[]
+}
+
+// Every manufacturer/application/CVM option discovered live from both Fortis environments (via
+// the admin "Add Terminal" forms) — a reference catalog, not per-device config (TerminalModel
+// above owns that). Feeds a future admin picker instead of hand-typed ids.
+model FortisTerminalOption {
+  id               Int      @id @default(autoincrement())
+  environment      String // "sandbox" | "production"
+  kind             String // "manufacturer" | "application" | "cvm"
+  fortisId         String
+  label            String
+  manufacturerCode String? // for application/cvm rows, which manufacturer they belong to
+  lineType         String? // "telium" | "tetra" — Ingenico-specific split; null otherwise
+  deprecated       Boolean  @default(false) // true for DNU-*/"DO NOT USE" entries
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([environment, kind, fortisId])
 }
 
 model DevicePrice {
@@ -335,6 +377,19 @@ model Setting {
   key       String   @id
   valueJson String
   updatedAt DateTime @updatedAt
+}
+
+// Local cache of Fortis Gateway locations (merchants), synced periodically from the live API so
+// admin search is a fast local query instead of hitting the gateway on every keystroke.
+model FortisLocationCache {
+  id            String   @id // Fortis location id
+  name          String
+  accountNumber String?
+  locationType  String?
+  updatedAt     DateTime @updatedAt
+
+  @@index([name])
+  @@index([accountNumber])
 }
 
 model AuditLog {

@@ -1,6 +1,18 @@
 import { InventoryCondition, type InventoryItem } from '@de/shared';
 import { posPortal } from '../adapters/posportal/index.js';
 import type { RawConsignedItem } from '../adapters/posportal/PosPortalAdapter.js';
+import { prisma } from '../db.js';
+import { fromJson, toJson } from '../util/json.js';
+
+const SNAPSHOT_KEY = 'inventory_snapshot';
+
+interface InventorySnapshot {
+  items: InventoryItem[];
+  totals: Record<string, number>;
+  fetchedAt: string | null;
+}
+
+const EMPTY_SNAPSHOT: InventorySnapshot = { items: [], totals: {}, fetchedAt: null };
 
 const ACTIVE_MODEL_PREFIXES = ['A920PRO', 'A80', 'A35', 'A920', 'PRG', 'QD4', 'QD2', 'IDMR'];
 
@@ -88,7 +100,17 @@ export function aggregateConsigned(raw: RawConsignedItem[]): InventoryItem[] {
 }
 
 export const inventoryService = {
-  async getConsigned(): Promise<{ items: InventoryItem[]; totals: Record<string, number> }> {
+  /** Local-first read: the Inventory & Forecast page reads this cache, not a live POS Portal
+   *  call — refreshed on a timer (pollerService) and on demand ("Refresh now"). */
+  async getCachedSnapshot(): Promise<InventorySnapshot> {
+    const row = await prisma.setting.findUnique({ where: { key: SNAPSHOT_KEY } });
+    if (!row) return EMPTY_SNAPSHOT;
+    return fromJson<InventorySnapshot>(row.valueJson, EMPTY_SNAPSHOT);
+  },
+
+  /** Live pull + aggregate + persist. Called by the poller on an interval and by the admin
+   *  "Refresh now" action / the full sandbox reset. */
+  async refreshSnapshot(): Promise<InventorySnapshot> {
     const raw = await posPortal().getConsignedInventory();
     const items = aggregateConsigned(raw);
     const serialized = items.filter((i) => !i.isNonSerialized);
@@ -101,6 +123,12 @@ export const inventoryService = {
       scrap: items.reduce((s, i) => s + i.scrapQty, 0),
       activeCatalogQty: serialized.filter((i) => i.isActiveCatalogItem).reduce((s, i) => s + i.totalQty, 0),
     };
-    return { items, totals };
+    const snapshot: InventorySnapshot = { items, totals, fetchedAt: new Date().toISOString() };
+    await prisma.setting.upsert({
+      where: { key: SNAPSHOT_KEY },
+      create: { key: SNAPSHOT_KEY, valueJson: toJson(snapshot) },
+      update: { valueJson: toJson(snapshot) },
+    });
+    return snapshot;
   },
 };

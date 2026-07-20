@@ -7,6 +7,7 @@ import type {
   PosPortalAdapter,
   PospBundleDetail,
   PospBundleHeader,
+  PospConnectionResult,
   PospDeployedItem,
   PospMerchant,
   PospOrderResult,
@@ -67,6 +68,20 @@ export class LivePosPortalAdapter implements PosPortalAdapter {
     if (!access_token) throw new Error('POS Portal token response missing access_token');
     this.token = { value: access_token, expiresAt: now + (expires_in ?? 3600) * 1000 };
     return access_token;
+  }
+
+  async testConnection(): Promise<PospConnectionResult> {
+    if (!config.POSP_CLIENT_ID || !config.POSP_CLIENT_SECRET) {
+      return { ok: false, detail: 'POSP_CLIENT_ID / POSP_CLIENT_SECRET are not set.' };
+    }
+    try {
+      const res = await this.http.get('/bundles', { params: { limit: 1 }, validateStatus: () => true });
+      if (res.status >= 200 && res.status < 300) return { ok: true, detail: `Connected to POS Portal (${config.POSP_BASE_URL}).`, status: res.status };
+      if (res.status === 401 || res.status === 403) return { ok: false, detail: `Authentication rejected (HTTP ${res.status}) — check POSP_CLIENT_ID/SECRET.`, status: res.status };
+      return { ok: false, detail: `POS Portal returned HTTP ${res.status}.`, status: res.status };
+    } catch (err) {
+      return { ok: false, detail: `Could not reach POS Portal: ${(err as Error).message}` };
+    }
   }
 
   async searchMerchantByMid(mid: string): Promise<PospMerchant | null> {

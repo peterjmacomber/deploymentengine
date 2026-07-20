@@ -13,6 +13,8 @@ import { config } from '../config.js';
 import { logger } from '../logger.js';
 import { toJson } from '../util/json.js';
 import { pricingService } from './pricingService.js';
+import { fortisLocationSyncService } from './fortisLocationSyncService.js';
+import { inventoryService } from './inventoryService.js';
 
 /**
  * Backfills the local database with REAL data from the POS Portal sandbox so the Deployment
@@ -308,16 +310,24 @@ async function importReturns(limit: number): Promise<number> {
   return n;
 }
 
-/** Remove seeded/placeholder business data (keeps users + audit log) so imported real data
- *  isn't mixed with the demo seed. FK-safe delete order. */
+/** Wipe every locally-stored table except Users (and their roles) — a clean-slate reset before
+ *  re-pulling from the sandbox. FK-safe delete order (FortisTerminal references Order). Does NOT
+ *  touch FortisLocationCache — that's Fortis reference data, refreshed by its own sync job
+ *  rather than wiped as "demo data". AuditLog is also kept (security record, not demo data). */
 async function clearBusinessData(): Promise<void> {
+  await prisma.fortisTerminal.deleteMany({});
   await prisma.fortisTerminalSync.deleteMany({});
+  await prisma.reportedIssue.deleteMany({});
+  await prisma.deploymentLink.deleteMany({});
   await prisma.deployedEquipment.deleteMany({});
   await prisma.order.deleteMany({});
   await prisma.returnCase.deleteMany({});
   await prisma.exceptionRequest.deleteMany({});
   await prisma.bundle.deleteMany({});
   await prisma.merchant.deleteMany({});
+  await prisma.setting.deleteMany({});
+  await prisma.apiKey.deleteMany({});
+  await prisma.forecastEstimate.deleteMany({});
   merchantCache.clear();
 }
 
@@ -331,6 +341,12 @@ export const importService = {
     const returns = await importReturns(orderLimit);
     // Price imported bundles from the device UPL (our source of truth).
     const priced = await pricingService.applyToBundles();
+    // Keep the Fortis location cache and consigned-inventory snapshot coherent with the reset,
+    // not just the transactional tables — best-effort, doesn't block the import result.
+    await Promise.all([
+      fortisLocationSyncService.syncAll().catch((err) => logger.warn({ err: (err as Error).message }, 'post-import Fortis location sync failed')),
+      inventoryService.refreshSnapshot().catch((err) => logger.warn({ err: (err as Error).message }, 'post-import inventory refresh failed')),
+    ]);
     logger.info({ bundles, orders, deployed, merchants, returns, priced }, 'sandbox import complete');
     return { bundles, orders, deployed, merchants, returns, priced };
   },

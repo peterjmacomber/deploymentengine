@@ -86,6 +86,39 @@ export const embedCreateOrderSchema = z.object({
 });
 export type EmbedCreateOrderInput = z.infer<typeof embedCreateOrderSchema>;
 
+/** The applicant shape shared by both Apply-flow steps below. */
+const applyApplicantSchema = z.object({
+  dbaName: z.string().min(1).max(160),
+  legalName: z.string().max(160).optional(),
+  contactName: z.string().min(1).max(120),
+  email: z.string().email(),
+  phone: z.string().min(7).max(40),
+  mid: z.string().min(1, 'MID is required').max(40),
+});
+
+/**
+ * Public Apply flow, step 1: really creates the POS Portal merchant + links it to Fortis (see
+ * merchantService.createForApply). Kept separate from embedCreateOrderSchema/the generic
+ * /orders route so third-party partner integrations never get this auto-provisioning behavior.
+ */
+export const applyCreateAccountSchema = z.object({
+  applicant: applyApplicantSchema,
+  shippingAddress: addressSchema,
+});
+export type ApplyCreateAccountInput = z.infer<typeof applyCreateAccountSchema>;
+
+/** Public Apply flow, step 2: places the real order for an already-created merchant, then
+ *  immediately fakes the shipment (mock serial/tracking) and does a real Fortis terminal create. */
+export const applyCreateOrderSchema = z.object({
+  merchantId: z.number().int().positive(),
+  mid: z.string().min(1, 'MID is required').max(40),
+  shippingAddress: addressSchema,
+  cart: z.array(cartLineSchema).min(1),
+  shippingMethodId: z.number().int().optional(),
+  returnUrl: z.string().url().optional(),
+});
+export type ApplyCreateOrderInput = z.infer<typeof applyCreateOrderSchema>;
+
 export const bundleItemSchema = z.object({
   sku: z.string().min(1).max(60),
   name: z.string().min(1).max(160),
@@ -106,12 +139,25 @@ export const upsertBundleSchema = z.object({
   accountingDeviceModel: z.string().max(120).optional(),
   accountingUnitPrice: z.number().nonnegative().optional(),
   brand: z.string().max(60).optional(),
+  terminalModelId: z.number().int().positive().optional(),
+});
+export type UpsertBundleInput = z.infer<typeof upsertBundleSchema>;
+
+/** Per-device Fortis Gateway linkage catalog — see TerminalModel (shared/src/domain.ts). */
+export const upsertTerminalModelSchema = z.object({
+  name: z.string().min(1).max(120),
+  manufacturer: z.string().max(60).optional(),
+  active: z.boolean().default(true),
   fortisManufacturerId: z.string().max(60).optional(),
   fortisApplicationId: z.string().max(60).optional(),
   fortisCvmId: z.string().max(60).optional(),
   fortisPaymentPriority: z.string().max(20).optional(),
+  fortisManufacturerIdProd: z.string().max(60).optional(),
+  fortisApplicationIdProd: z.string().max(60).optional(),
+  fortisCvmIdProd: z.string().max(60).optional(),
+  fortisPaymentPriorityProd: z.string().max(20).optional(),
 });
-export type UpsertBundleInput = z.infer<typeof upsertBundleSchema>;
+export type UpsertTerminalModelInput = z.infer<typeof upsertTerminalModelSchema>;
 
 export const returnItemSchema = z.object({
   deployedEquipmentId: z.number().int().optional(),

@@ -48,6 +48,14 @@ const envSchema = z
     // POS Portal ships (no employee copy/paste needed). Live mode only.
     POLL_ENABLED: bool.default(true),
     POLL_INTERVAL_SECONDS: z.coerce.number().default(300),
+    // Connectivity check against both upstream sandboxes (POS Portal + Fortis), independent of
+    // whether there are in-flight orders — feeds the admin System Status page.
+    STATUS_POLL_INTERVAL_SECONDS: z.coerce.number().default(300),
+    // Local snapshot of consigned inventory, refreshed on a timer instead of live-per-request.
+    INVENTORY_POLL_INTERVAL_SECONDS: z.coerce.number().default(900),
+    // Full paginated re-sync of Fortis Gateway locations into the local cache (8,500+ rows —
+    // infrequent by design; the admin Fortis Gateway page can also trigger it on demand).
+    FORTIS_LOCATION_SYNC_INTERVAL_SECONDS: z.coerce.number().default(21_600),
 
     // Tax (prototype structure for future Avalara + direct billing). none | mock | avalara
     TAX_MODE: z.enum(['none', 'mock', 'avalara']).default('none'),
@@ -58,6 +66,11 @@ const envSchema = z
     AVALARA_COMPANY_CODE: z.string().optional(),
 
     FORTIS_BASE_URL: z.string().url().optional(),
+    // Terminal provisioning (create/list/update) lives on a DIFFERENT host than merchant/location
+    // search: verified live 2026-07-16 — FORTIS_BASE_URL (api.sandbox.fortis.tech) serves /v1
+    // locations (200) but 403s on /v2/terminals; api.sandbox.zeamster.com serves /v2/terminals
+    // (200) but 404s on /v1/locations. These are not interchangeable.
+    FORTIS_TERMINALS_BASE_URL: z.string().url().default('https://api.sandbox.zeamster.com'),
     FORTIS_MERCHANT_LOGIN_URL: z.string().url().optional(),
     FORTIS_DEVELOPER_ID: z.string().optional(),
     FORTIS_USER_ID: z.string().optional(),
@@ -65,7 +78,19 @@ const envSchema = z
     FORTIS_USER_API_KEY: z.string().optional(),
     FORTIS_USER_HASH_KEY: z.string().optional(),
     FORTIS_TICKET_HASH_KEY: z.string().optional(),
+    // Which set of per-bundle Fortis terminal ids (manufacturer/application/CVM) to use.
+    // Sandbox and production are different Fortis accounts with different ids for the same
+    // device (confirmed live 2026-07-20 — e.g. Ingenico Tetra Lane has a different application
+    // id in each). Flip to 'production' together with pointing FORTIS_BASE_URL/credentials at
+    // the real production Fortis account, to run a genuine end-to-end production test.
+    FORTIS_ENV: z.enum(['sandbox', 'production']).default('sandbox'),
     FORTIS_LOCATION_ID: z.string().optional(),
+    // Fortis has no self-service "create a merchant account" API (POST /v1/onboarding is a full
+    // underwriting/boarding application requiring a template_code we don't have and likely
+    // resolves to a pending application, not an instantly-usable location). So the public Apply
+    // flow links every new merchant to ONE pre-created sandbox location instead of creating a
+    // new one per applicant. This location has no account_number (per the account owner).
+    FORTIS_APPLY_LOCATION_ID: z.string().optional(),
     FORTIS_TERMINAL_ID: z.string().optional(),
     FORTIS_TERMINAL_APPLICATION_ID: z.string().optional(),
     FORTIS_TERMINAL_CVM_ID: z.string().optional(),

@@ -4,6 +4,8 @@ import { fortis } from '../../adapters/fortis/index.js';
 import { prisma } from '../../db.js';
 import { config } from '../../config.js';
 import { settingsService } from '../../services/settingsService.js';
+import { fortisLocationSyncService } from '../../services/fortisLocationSyncService.js';
+import { fortisOptionCatalogService } from '../../services/fortisOptionCatalogService.js';
 import { requirePermission } from '../middleware/auth.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { badRequest, notFound } from '../../util/errors.js';
@@ -43,12 +45,29 @@ fortisRouter.post(
   }),
 );
 
+// Local-cache search — instant, no live Fortis call. Kept fresh by the background sync job
+// (FORTIS_LOCATION_SYNC_INTERVAL_SECONDS) and the "Sync now" action below.
 fortisRouter.get(
   '/search',
   asyncHandler(async (req, res) => {
     const q = String(req.query.q ?? '').trim();
     if (!q) throw badRequest('A search query is required');
-    res.json({ locations: await fortis().searchLocations(q) });
+    res.json({ locations: await fortisLocationSyncService.search(q) });
+  }),
+);
+
+fortisRouter.get(
+  '/locations/sync-status',
+  asyncHandler(async (_req, res) => {
+    res.json(await fortisLocationSyncService.status());
+  }),
+);
+
+fortisRouter.post(
+  '/locations/sync',
+  asyncHandler(async (req, res) => {
+    req.auditMeta = { targetType: 'fortis', action: 'fortis.locations.sync' };
+    res.json(await fortisLocationSyncService.syncAll());
   }),
 );
 
@@ -66,6 +85,19 @@ fortisRouter.post(
     });
     req.auditMeta = { targetType: 'merchant', targetId: String(b.merchantId), action: 'fortis.link' };
     res.json({ merchantId: merchant.id, fortisLocationId: merchant.fortisLocationId, fortisLocationName: merchant.fortisLocationName });
+  }),
+);
+
+// Saved catalog of every manufacturer/application/CVM option discovered from BOTH Fortis
+// environments (sandbox live sync + production, hand-discovered — no prod API creds exist in
+// this app). Distinct from /terminal-options below, which is a live sandbox-only call backing
+// the separate global terminal-defaults feature.
+fortisRouter.get(
+  '/option-catalog',
+  asyncHandler(async (req, res) => {
+    const environment = typeof req.query.environment === 'string' ? req.query.environment : undefined;
+    const kind = typeof req.query.kind === 'string' ? req.query.kind : undefined;
+    res.json({ options: await fortisOptionCatalogService.list({ environment, kind }) });
   }),
 );
 

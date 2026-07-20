@@ -13,7 +13,18 @@ inventoryRouter.get(
   '/consigned',
   requirePermission(Permission.INVENTORY_READ),
   asyncHandler(async (_req, res) => {
-    res.json(await inventoryService.getConsigned());
+    res.json(await inventoryService.getCachedSnapshot());
+  }),
+);
+
+// On-demand pull (the background poller also refreshes this on INVENTORY_POLL_INTERVAL_SECONDS).
+inventoryRouter.post(
+  '/consigned/refresh',
+  requirePermission(Permission.INVENTORY_READ),
+  asyncHandler(async (req, res) => {
+    const snapshot = await inventoryService.refreshSnapshot();
+    req.auditMeta = { action: 'inventory.refresh' };
+    res.json(snapshot);
   }),
 );
 

@@ -44,6 +44,13 @@ export interface PolicyConfig {
   courtesyRequiresApproval: boolean;
 }
 
+export interface ConnectionStatus {
+  ok: boolean;
+  detail: string;
+  lastCheckedAt: string | null;
+  lastSuccessAt: string | null;
+}
+
 export interface FortisTerminalConfig {
   manufacturerCode: string;
   applicationId: string;
@@ -219,7 +226,8 @@ export const api = {
     setStatus: (id: number, status: string) => request<{ equipment: DeployedEquipment }>('POST', `/api/v1/deployed-equipment/${id}/status`, { status }),
   },
   inventory: {
-    consigned: () => request<{ items: InventoryItem[]; totals: Record<string, number> }>('GET', '/api/v1/inventory/consigned'),
+    consigned: () => request<{ items: InventoryItem[]; totals: Record<string, number>; fetchedAt: string | null }>('GET', '/api/v1/inventory/consigned'),
+    refreshConsigned: () => request<{ items: InventoryItem[]; totals: Record<string, number>; fetchedAt: string | null }>('POST', '/api/v1/inventory/consigned/refresh'),
     forecast: () => request<{ rows: ForecastRow[]; alerts: InventoryAlert[]; buyPlan: ForecastRow[]; metrics: Record<string, number> }>('GET', '/api/v1/inventory/forecast'),
     setEstimate: (newPartId: string, month: string, qty: number) => request<{ ok: boolean }>('POST', '/api/v1/inventory/forecast/estimate', { newPartId, month, qty }),
   },
@@ -280,6 +288,10 @@ export const api = {
     getPolicy: () => request<PolicyConfig>('GET', '/api/v1/settings/policy'),
     setPolicy: (cfg: PolicyConfig) => request<PolicyConfig>('PUT', '/api/v1/settings/policy', cfg),
   },
+  system: {
+    status: () => request<{ posPortal: ConnectionStatus; fortis: ConnectionStatus }>('GET', '/api/v1/system/status'),
+    check: () => request<{ posPortal: ConnectionStatus; fortis: ConnectionStatus }>('POST', '/api/v1/system/status/check'),
+  },
   fortis: {
     status: () => request<{
       configured: boolean; baseUrl: string | null; merchantLoginUrl: string | null; linkField: string;
@@ -287,6 +299,8 @@ export const api = {
     }>('GET', '/api/v1/fortis/status'),
     test: () => request<{ ok: boolean; detail: string; status?: number }>('POST', '/api/v1/fortis/test'),
     search: (q: string) => request<{ locations: Array<{ id: string; name: string; accountNumber: string | null; locationType?: string }> }>('GET', `/api/v1/fortis/search?q=${encodeURIComponent(q)}`),
+    locationSyncStatus: () => request<{ count: number; syncedAt: string | null }>('GET', '/api/v1/fortis/locations/sync-status'),
+    syncLocations: () => request<{ count: number }>('POST', '/api/v1/fortis/locations/sync'),
     link: (input: { merchantId: number; fortisLocationId: string; fortisLocationName?: string }) =>
       request<{ merchantId: number; fortisLocationId: string | null; fortisLocationName: string | null }>('POST', '/api/v1/fortis/link', input),
     activate: (input: { serialNumber: string; locationId?: string; merchantId?: number; title?: string }) =>
@@ -370,6 +384,18 @@ export const publicApi = {
       'GET',
       `/api/public/v1/orders/${id}`,
       undefined,
+      { apiKey: PUBLIC_KEY },
+    ),
+  // Apply flow: really creates the POS Portal merchant + links it to Fortis (step 1), then
+  // places a real order and immediately fakes the shipment so a serial/tracking is available
+  // right away (step 2) — the sandbox never actually ships anything.
+  applyCreateAccount: (input: unknown) =>
+    request<{ merchantId: number }>('POST', '/api/public/v1/apply', input, { apiKey: PUBLIC_KEY }),
+  applyCreateOrder: (input: unknown) =>
+    request<{ order: { id: number; reference?: string; status: string; packages: Order['packages']; serialNumbers: string[] }; redirectUrl?: string }>(
+      'POST',
+      '/api/public/v1/apply/order',
+      input,
       { apiKey: PUBLIC_KEY },
     ),
 };

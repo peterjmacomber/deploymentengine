@@ -22,6 +22,7 @@ import { ReportedIssues } from './pages/ReportedIssues';
 import { Users } from './pages/Users';
 import { ApiKeys } from './pages/ApiKeys';
 import { FortisGateway } from './pages/FortisGateway';
+import { SystemStatus } from './pages/SystemStatus';
 import { Audit } from './pages/Audit';
 import { Apply } from './pages/public/Apply';
 import { OrderForm } from './pages/public/OrderForm';
@@ -108,6 +109,7 @@ export function App() {
       <Route path="/users" element={<Protected><Users /></Protected>} />
       <Route path="/api-keys" element={<Protected><ApiKeys /></Protected>} />
       <Route path="/fortis" element={<Protected><FortisGateway /></Protected>} />
+      <Route path="/system-status" element={<Protected><SystemStatus /></Protected>} />
       <Route path="/audit" element={<Protected><Audit /></Protected>} />
 
       {/* Merchant self-service portal */}

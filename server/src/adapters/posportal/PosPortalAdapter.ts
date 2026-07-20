@@ -100,8 +100,17 @@ export interface CreateOrderPayload {
   reference?: string;
 }
 
+export interface PospConnectionResult {
+  ok: boolean;
+  detail: string;
+  status?: number;
+}
+
 export interface PosPortalAdapter {
   readonly mode: 'mock' | 'live';
+
+  /** Cheap live reachability check — feeds the admin System Status page. */
+  testConnection(): Promise<PospConnectionResult>;
 
   // Merchants
   searchMerchantByMid(mid: string): Promise<PospMerchant | null>;

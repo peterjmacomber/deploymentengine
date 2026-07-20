@@ -9,6 +9,7 @@ import { useTableControls } from '../components/TableControls';
 import { api, ApiError } from '../api/client';
 import { useAuth } from '../stores/authStore';
 import { useToast } from '../components/Toast';
+import { dateTime } from '../lib/format';
 
 const MANUFACTURERS = ['Ingenico', 'PAX', 'ID Tech', 'Dejavoo'];
 
@@ -44,9 +45,17 @@ export function Inventory() {
   const [mfg, setMfg] = useState('');
   const [cond, setCond] = useState('');
   const canEdit = useAuth((s) => s.can)(Permission.EXCEPTION_APPROVE);
+  const toast = useToast();
+  const qcTop = useQueryClient();
 
   const consigned = useQuery({ queryKey: ['inventory-consigned'], queryFn: api.inventory.consigned });
   const forecast = useQuery({ queryKey: ['inventory-forecast'], queryFn: api.inventory.forecast, enabled: tab === 'alerts' || tab === 'settings' });
+
+  const refreshConsigned = useMutation({
+    mutationFn: api.inventory.refreshConsigned,
+    onSuccess: () => { toast.push('Inventory snapshot refreshed', 'success'); qcTop.invalidateQueries({ queryKey: ['inventory-consigned'] }); },
+    onError: (e) => toast.push(e instanceof ApiError ? (e.detail ?? e.message) : 'Refresh failed', 'error'),
+  });
 
   const equipment = (consigned.data?.items ?? []).filter((i) => !i.isNonSerialized);
   const nonEquipment = (consigned.data?.items ?? []).filter((i) => i.isNonSerialized);
@@ -78,6 +87,17 @@ export function Inventory() {
           <div key={t.key} className={`tab ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)}>{t.label}</div>
         ))}
       </div>
+
+      {(tab === 'equipment' || tab === 'nonequipment') && (
+        <div className="row between small muted" style={{ margin: '4px 0 12px' }}>
+          <span>Consigned inventory as of {consigned.data?.fetchedAt ? dateTime(consigned.data.fetchedAt) : 'never — refresh to pull the first snapshot'}</span>
+          {canEdit && (
+            <button className="btn sm" disabled={refreshConsigned.isPending} onClick={() => refreshConsigned.mutate()}>
+              {refreshConsigned.isPending ? 'Refreshing…' : 'Refresh now'}
+            </button>
+          )}
+        </div>
+      )}
 
       {tab === 'equipment' && (
         <>

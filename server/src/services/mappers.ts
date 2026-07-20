@@ -5,6 +5,7 @@ import type {
   Merchant as MerchantRow,
   Order as OrderRow,
   ReturnCase as ReturnRow,
+  TerminalModel as TerminalModelRow,
 } from '@prisma/client';
 import type {
   Address,
@@ -18,6 +19,7 @@ import type {
   Package,
   ReturnCase,
   ReturnItem,
+  TerminalModel,
 } from '@de/shared';
 import { brandFromText } from '@de/shared';
 import { fromJson } from '../util/json.js';
@@ -45,7 +47,7 @@ export function toMerchant(row: MerchantRow): Merchant {
   };
 }
 
-export function toBundle(row: BundleRow): Bundle {
+export function toBundle(row: BundleRow & { terminalModel?: TerminalModelRow | null }): Bundle {
   return {
     pospBundleId: row.pospBundleId,
     displayName: row.displayName,
@@ -62,10 +64,26 @@ export function toBundle(row: BundleRow): Bundle {
     accountingDeviceModel: row.accountingDeviceModel ?? undefined,
     accountingUnitPrice: row.accountingUnitPrice ?? undefined,
     brand: row.brand ?? brandFromText(row.accountingDeviceModel, row.displayName),
+    terminalModelId: row.terminalModelId ?? undefined,
+    terminalModel: row.terminalModel ? toTerminalModel(row.terminalModel) : undefined,
+    updatedAt: iso(row.updatedAt),
+  };
+}
+
+export function toTerminalModel(row: TerminalModelRow): TerminalModel {
+  return {
+    id: row.id,
+    name: row.name,
+    manufacturer: row.manufacturer ?? undefined,
+    active: row.active,
     fortisManufacturerId: row.fortisManufacturerId ?? undefined,
     fortisApplicationId: row.fortisApplicationId ?? undefined,
     fortisCvmId: row.fortisCvmId ?? undefined,
     fortisPaymentPriority: row.fortisPaymentPriority ?? undefined,
+    fortisManufacturerIdProd: row.fortisManufacturerIdProd ?? undefined,
+    fortisApplicationIdProd: row.fortisApplicationIdProd ?? undefined,
+    fortisCvmIdProd: row.fortisCvmIdProd ?? undefined,
+    fortisPaymentPriorityProd: row.fortisPaymentPriorityProd ?? undefined,
     updatedAt: iso(row.updatedAt),
   };
 }

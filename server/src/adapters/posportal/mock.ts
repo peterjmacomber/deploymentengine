@@ -45,6 +45,10 @@ export class MockPosPortalAdapter implements PosPortalAdapter {
   private nextOrderId = 900000 + Math.floor(Math.random() * 900000);
   private nextDeployedId = 500000;
 
+  async testConnection() {
+    return { ok: true, detail: 'Mock mode (no live POS Portal connection).' };
+  }
+
   constructor() {
     for (const m of MOCK_MERCHANTS) {
       if (m.mid) this.merchants.set(m.mid, { id: m.id, mid: m.mid, dbaName: m.dbaName, legalName: m.legalName, email: m.email, phone: m.phone });

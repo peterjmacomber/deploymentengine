@@ -57,10 +57,10 @@ export function Policies() {
 
           <Card>
             <h3>Data source</h3>
-            <p className="small muted">This deployment engine runs on the live POS Portal sandbox. Use this to clear any leftover demo data and pull a fresh snapshot of merchants, bundles, and orders from the API.</p>
+            <p className="small muted">This deployment engine runs on the live POS Portal + Fortis Gateway sandboxes. This wipes every locally stored table except Users, then pulls a fresh snapshot of merchants, bundles/products, orders, returns, the Fortis location cache, and consigned inventory.</p>
             {isAdmin ? (
-              <button className="btn danger" disabled={reimport.isPending} onClick={() => { if (confirm('Clear local demo/business data and re-import from POS Portal?')) reimport.mutate(); }}>
-                {reimport.isPending ? 'Re-importing…' : 'Reset to 100% live data'}
+              <button className="btn danger" disabled={reimport.isPending} onClick={() => { if (confirm('Wipe all local data (except Users) and re-import a fresh snapshot from the sandboxes?')) reimport.mutate(); }}>
+                {reimport.isPending ? 'Resetting…' : 'Reset to a fresh sandbox pull'}
               </button>
             ) : <div className="small muted">Admin only.</div>}
           </Card>

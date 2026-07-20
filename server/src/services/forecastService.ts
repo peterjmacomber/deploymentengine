@@ -44,7 +44,7 @@ const avg = (xs: number[]) => (xs.length ? Math.round((xs.reduce((s, x) => s + x
 
 export const forecastService = {
   async build(): Promise<{ rows: ForecastRow[]; alerts: InventoryAlert[]; buyPlan: ForecastRow[]; metrics: Record<string, number> }> {
-    const { items } = await inventoryService.getConsigned();
+    const { items } = await inventoryService.getCachedSnapshot();
     const devices = items.filter((i) => !i.isNonSerialized && i.condition === 'NEW');
 
     const past = pastMonths(12);

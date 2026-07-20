@@ -1,10 +1,11 @@
 import type { CreateMerchantInput, Merchant } from '@de/shared';
 import { prisma } from '../db.js';
 import { posPortal } from '../adapters/posportal/index.js';
+import { fortis } from '../adapters/fortis/index.js';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
 import { toJson } from '../util/json.js';
-import { notFound } from '../util/errors.js';
+import { badRequest, notFound } from '../util/errors.js';
 import { toMerchant } from './mappers.js';
 
 export const merchantService = {
@@ -95,5 +96,67 @@ export const merchantService = {
 
   async create(input: CreateMerchantInput): Promise<Merchant> {
     return this.resolveOrCreate(input);
+  },
+
+  /**
+   * Dedicated onboarding path for the public Apply flow — real POS Portal merchant, real Fortis
+   * link, done together at signup (not lazily at order time like `resolveOrCreate`). Fortis has
+   * no self-service "create a merchant account" API (boarding is a full underwriting
+   * application), so every applicant links to one pre-created sandbox location
+   * (`FORTIS_APPLY_LOCATION_ID`) instead of a new one being created per signup.
+   * Idempotent by MID: re-submitting the same MID reuses the existing merchant/link.
+   */
+  async createForApply(input: CreateMerchantInput): Promise<Merchant> {
+    if (!input.mid) throw badRequest('MID is required');
+
+    const existing = await prisma.merchant.findFirst({ where: { mid: input.mid } });
+    if (existing?.fortisLocationId) return toMerchant(existing);
+
+    if (!config.FORTIS_APPLY_LOCATION_ID) {
+      throw badRequest('FORTIS_APPLY_LOCATION_ID is not configured — cannot link new merchants to a Fortis account');
+    }
+    const location = await fortis().getLocation(config.FORTIS_APPLY_LOCATION_ID);
+    if (!location) {
+      throw badRequest('Could not reach the configured Fortis account (FORTIS_APPLY_LOCATION_ID) — check the connection on the System Status page');
+    }
+
+    if (existing) {
+      const row = await prisma.merchant.update({
+        where: { id: existing.id },
+        data: { fortisLocationId: location.id, fortisLocationName: location.name },
+      });
+      return toMerchant(row);
+    }
+
+    let created: { id?: number; mid?: string } = {};
+    try {
+      created = await posPortal().createMerchant({
+        mid: input.mid,
+        dbaName: input.dbaName,
+        legalName: input.legalName,
+        email: input.email,
+        phone: input.phone,
+        primaryContact: input.dbaName,
+        shippingAddress: input.shippingAddress,
+      });
+    } catch (err) {
+      logger.warn({ err: (err as Error).message }, 'live POS Portal merchant create failed (apply flow); storing locally');
+      if (config.POSP_STRICT_WRITES) throw err;
+    }
+
+    const row = await prisma.merchant.create({
+      data: {
+        pospMerchantId: created.id,
+        mid: input.mid,
+        dbaName: input.dbaName,
+        legalName: input.legalName,
+        email: input.email,
+        phone: input.phone,
+        shippingAddressJson: input.shippingAddress ? toJson(input.shippingAddress) : null,
+        fortisLocationId: location.id,
+        fortisLocationName: location.name,
+      },
+    });
+    return toMerchant(row);
   },
 };
