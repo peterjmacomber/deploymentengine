@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { OrderStatus, Permission, ReturnLifecycle, ReturnReasonCode, ReturnType } from '@de/shared';
+import { Permission, ReturnLifecycle, ReturnReasonCode, ReturnType } from '@de/shared';
 import { AppShell } from '../components/AppShell';
 import { Badge, Card, Loading, StatusBadge } from '../components/ui';
 import { PizzaTracker } from '../components/PizzaTracker';
@@ -13,9 +13,6 @@ import { api, ApiError } from '../api/client';
 import { useAuth } from '../stores/authStore';
 import { useToast } from '../components/Toast';
 import { dateTime, money, serialTag } from '../lib/format';
-
-const CAN_SHIP: string[] = [OrderStatus.DRAFT, OrderStatus.PLACED, OrderStatus.IN_PREP, OrderStatus.BACKORDERED];
-const CAN_DELIVER: string[] = [OrderStatus.SHIPPED, OrderStatus.OUT_FOR_DELIVERY];
 
 export function OrderDetail() {
   const { id } = useParams();
@@ -35,8 +32,6 @@ export function OrderDetail() {
     onError: (e: unknown) => toast.push(e instanceof ApiError ? (e.detail ?? e.message) : 'Action failed', 'error'),
   });
   const cancel = useMutation(mutation(() => api.orders.cancel(orderId), 'Order cancelled'));
-  const ship = useMutation(mutation(() => api.dev.ship(orderId), 'Shipment simulated — serials assigned & devices activated in Fortis Gateway'));
-  const deliver = useMutation(mutation(() => api.dev.deliver(orderId, 'J. DOE'), 'Marked delivered'));
 
   if (isError || (!isLoading && !data)) {
     return (
@@ -51,8 +46,6 @@ export function OrderDetail() {
   }
   if (isLoading || !data) return <AppShell title="Order"><Loading /></AppShell>;
   const o = data.order;
-  const canSimulate = can(Permission.DEV_TOOLS) && CAN_SHIP.includes(o.status);
-  const canMarkDelivered = can(Permission.DEV_TOOLS) && CAN_DELIVER.includes(o.status);
   const deviceRows = devices.data?.equipment ?? [];
 
   return (
@@ -76,12 +69,9 @@ export function OrderDetail() {
             {o.syncStatus === 'synced' && <Badge tone="green">Synced to POS Portal</Badge>}
             {o.syncStatus === 'local' && <Badge tone="amber"><span title={o.syncError}>Not synced — {o.syncError ?? 'sandbox rejected'}</span></Badge>}
           </div>
-          {can(Permission.DEV_TOOLS) && (
-            <div className="row" style={{ gap: 6 }}>
-              <button className="btn sm" onClick={() => ship.mutate()} disabled={!canSimulate || ship.isPending} title={canSimulate ? '' : 'Only available before the order ships'}>Simulate shipment</button>
-              <button className="btn sm" onClick={() => deliver.mutate()} disabled={!canMarkDelivered || deliver.isPending} title={canMarkDelivered ? '' : 'Only available once shipped'}>Mark delivered</button>
-            </div>
-          )}
+          {/* Shipment/serial/Fortis-activation are driven only by real POS Portal state (via the
+              poller) here — the engine mirrors real sandbox data. Simulation lives solely in the
+              public Apply flow (/apply/order), the end-to-end testing tool. */}
         </div>
         <PizzaTracker status={o.status} packages={o.packages} />
       </Card>

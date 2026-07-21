@@ -228,16 +228,22 @@ class LiveFortisAdapter implements FortisAdapter {
   async getLocation(id: string): Promise<FortisLocation | null> {
     const base = config.FORTIS_BASE_URL;
     if (!base || !config.FORTIS_USER_ID) return null;
-    try {
-      const res = await axios.get(`${base}/v1/locations/${id}`, { headers: this.headers(), timeout: 20_000, validateStatus: () => true });
-      if (res.status < 200 || res.status >= 300) return null;
-      const l = res.data?.data ?? res.data;
-      if (!l?.id) return null;
-      return { id: String(l.id), name: l.name ?? '', accountNumber: l.account_number ?? null, locationType: l.location_type ?? undefined };
-    } catch (err) {
-      logger.warn({ err: (err as Error).message, id }, 'Fortis getLocation failed');
-      return null;
+    // Retry transient network errors (e.g. EAI_AGAIN DNS blips inside the container) so a one-off
+    // hiccup doesn't fail the Apply flow with "Could not reach the configured Fortis account".
+    // A non-2xx HTTP response (validateStatus below) is a real answer — returned, not retried.
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        const res = await axios.get(`${base}/v1/locations/${id}`, { headers: this.headers(), timeout: 20_000, validateStatus: () => true });
+        if (res.status < 200 || res.status >= 300) return null;
+        const l = res.data?.data ?? res.data;
+        if (!l?.id) return null;
+        return { id: String(l.id), name: l.name ?? '', accountNumber: l.account_number ?? null, locationType: l.location_type ?? undefined };
+      } catch (err) {
+        logger.warn({ err: (err as Error).message, id, attempt }, 'Fortis getLocation failed');
+        if (attempt < 3) await new Promise((r) => setTimeout(r, 500 * attempt));
+      }
     }
+    return null;
   }
 
   async listAllLocations(): Promise<FortisLocation[]> {
