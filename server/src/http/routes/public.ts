@@ -191,7 +191,9 @@ publicRouter.get(
   '/orders/:id',
   requirePermission(Permission.ORDER_READ),
   asyncHandler(async (req, res) => {
-    const order = await orderService.get(idParam(req), { refresh: true });
+    // No live refresh: the poller keeps real orders current; simulated Apply orders must read
+    // local DB state (POS Portal would return SUBMITTED, reverting our SHIPPED simulation).
+    const order = await orderService.get(idParam(req));
     res.json({
       order: {
         id: order.id,
